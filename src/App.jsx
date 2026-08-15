@@ -79,7 +79,7 @@ function Reveal({ children, delay = 0, className = "" }) {
   );
 }
 
-/* ---------- spin dial (signature element) ---------- */
+/* ---------- spin dial (signature element) — now the real Beyblade photo ---------- */
 function SpinDial({ size = 240, speed = 18, className = "" }) {
   return (
     <div
@@ -90,32 +90,19 @@ function SpinDial({ size = 240, speed = 18, className = "" }) {
         animation: `blade-spin ${speed}s linear infinite`,
       }}
     >
-      <svg viewBox="0 0 200 200" width="100%" height="100%">
-        <circle cx="100" cy="100" r="92" fill="none" stroke="#2A3050" strokeWidth="2" />
-        <circle
-          cx="100"
-          cy="100"
-          r="92"
-          fill="none"
-          stroke="#FF4425"
-          strokeWidth="3"
-          strokeDasharray="12 10"
-          strokeLinecap="round"
-        />
-        <circle cx="100" cy="100" r="66" fill="none" stroke="#00E6C3" strokeWidth="1.5" opacity="0.5" />
-        {Array.from({ length: 16 }).map((_, i) => {
-          const a = (i / 16) * Math.PI * 2;
-          const x1 = 100 + Math.cos(a) * 78,
-            y1 = 100 + Math.sin(a) * 78;
-          const x2 = 100 + Math.cos(a) * 88,
-            y2 = 100 + Math.sin(a) * 88;
-          return (
-            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#7A8194" strokeWidth="1.5" />
-          );
-        })}
-        <circle cx="100" cy="100" r="34" fill="#141827" stroke="#FF4425" strokeWidth="2" />
-        <polygon points="100,74 118,100 100,126 82,100" fill="#00E6C3" opacity="0.9" />
-      </svg>
+      <img
+        src="/BBA-SITE/beyblade-hero.jpg"
+        alt="Beyblade"
+        width={size}
+        height={size}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          borderRadius: "50%",
+          filter: "drop-shadow(0 0 24px rgba(255,68,37,0.35))",
+        }}
+      />
     </div>
   );
 }
