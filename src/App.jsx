@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import beybladeImg from "./assets/beyblade.png";
+import bbaLogo from "./assets/bba-logo.png";
+import { useAuth } from "./auth/context";
+import AuthPage from "./pages/AuthPage";
+import AccountMenu from "./components/AccountMenu";
+import { readAuthRoute, goAuth, leaveAuth, ROUTE_EVENT } from "./lib/authRoute";
 
 /* ---------------------------------------------------------
    Storage fallback: window.storage is provided by the Claude
@@ -28,7 +34,7 @@ if (typeof window !== "undefined" && !window.storage) {
 }
 
 /* ---------------------------------------------------------
-   BLADE CITY BLR — Bangalore Beyblade tournament hub + shop
+   BANGALORE BEYBLADE ASSOCIATION — tournament hub + shop
    Design tokens
    bg        #0A0D18   surface   #141827   surface-2 #1C2136
    orange    #FF4425   cyan      #00E6C3   gold      #FFC240
@@ -79,43 +85,36 @@ function Reveal({ children, delay = 0, className = "" }) {
   );
 }
 
-/* ---------- spin dial (signature element) ---------- */
-function SpinDial({ size = 240, speed = 18, className = "" }) {
+/* ---------- spinning bey (signature element) ----------
+   `speed` is seconds per full rotation. Alt text defaults to
+   empty since most instances are decorative.                */
+function SpinningBey({ size = 240, speed = 4, className = "", alt = "" }) {
   return (
-    <div
-      className={className}
-      style={{
-        width: size,
-        height: size,
-        animation: `blade-spin ${speed}s linear infinite`,
-      }}
-    >
-      <svg viewBox="0 0 200 200" width="100%" height="100%">
-        <circle cx="100" cy="100" r="92" fill="none" stroke="#2A3050" strokeWidth="2" />
-        <circle
-          cx="100"
-          cy="100"
-          r="92"
-          fill="none"
-          stroke="#FF4425"
-          strokeWidth="3"
-          strokeDasharray="12 10"
-          strokeLinecap="round"
-        />
-        <circle cx="100" cy="100" r="66" fill="none" stroke="#00E6C3" strokeWidth="1.5" opacity="0.5" />
-        {Array.from({ length: 16 }).map((_, i) => {
-          const a = (i / 16) * Math.PI * 2;
-          const x1 = 100 + Math.cos(a) * 78,
-            y1 = 100 + Math.sin(a) * 78;
-          const x2 = 100 + Math.cos(a) * 88,
-            y2 = 100 + Math.sin(a) * 88;
-          return (
-            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#7A8194" strokeWidth="1.5" />
-          );
-        })}
-        <circle cx="100" cy="100" r="34" fill="#141827" stroke="#FF4425" strokeWidth="2" />
-        <polygon points="100,74 118,100 100,126 82,100" fill="#00E6C3" opacity="0.9" />
-      </svg>
+    <div className={className} style={{ position: "relative", width: size, height: size }}>
+      {/* stadium glow — sits under the bey and does not rotate with it */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: "-10%",
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(255,68,37,0.26) 0%, rgba(255,194,64,0.12) 45%, transparent 70%)",
+        }}
+      />
+      <img
+        src={beybladeImg}
+        alt={alt}
+        draggable="false"
+        style={{
+          position: "relative",
+          display: "block",
+          width: "100%",
+          height: "100%",
+          animation: `blade-spin ${speed}s linear infinite`,
+          filter: "drop-shadow(0 10px 22px rgba(0,0,0,0.55))",
+        }}
+      />
     </div>
   );
 }
@@ -224,8 +223,6 @@ const VIDEOS = [
   { id: "v4", title: "Launcher Tech: Pull-Speed Comparison", dur: "5:02" },
 ];
 
-const SELLER_ME = { id: "seller-you", name: "You" };
-
 const SEED_PRODUCTS = [
   { id: "p1", name: "Dran Sword 3-60F", price: 799, category: "Attack", stock: 12, sellerId: "seller-arjun", sellerName: "Arjun's Bey Depot", status: "approved" },
   { id: "p2", name: "Wizard Arrow 4-80B", price: 849, category: "Balance", stock: 7, sellerId: "seller-arjun", sellerName: "Arjun's Bey Depot", status: "approved" },
@@ -245,13 +242,47 @@ export default function App() {
 
   const [products, setProducts] = useState(SEED_PRODUCTS);
   const [loaded, setLoaded] = useState(false);
-  const [role, setRole] = useState("buyer");
+
+  const { user, loading: authLoading, role, setRole, isAdmin } = useAuth();
+  const [route, setRoute] = useState(readAuthRoute);
 
   useEffect(() => {
     const onScroll = () => setNav(window.scrollY > 40);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // ?auth=login|signup drives the auth view. popstate covers back/forward,
+  // ROUTE_EVENT covers our own pushState calls.
+  useEffect(() => {
+    const sync = () => setRoute(readAuthRoute());
+    window.addEventListener("popstate", sync);
+    window.addEventListener(ROUTE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener(ROUTE_EVENT, sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (route.mode) window.scrollTo(0, 0);
+  }, [route.mode]);
+
+  /* Landing on an auth route with a session means sign-in just succeeded —
+     either from this page, or from a Google redirect that reloaded us back
+     here. Same exit either way, honouring ?next=. */
+  useEffect(() => {
+    if (authLoading || !user || !route.mode) return;
+    const { next } = route;
+    leaveAuth();
+    fireToast(`Signed in as ${user.name}`);
+    if (next === "cart") setCartOpen(true);
+    if (next === "market") {
+      requestAnimationFrame(() =>
+        document.getElementById("market")?.scrollIntoView({ behavior: "smooth" })
+      );
+    }
+  }, [authLoading, user, route, fireToast]);
 
   // load / seed shared marketplace data
   useEffect(() => {
@@ -292,6 +323,11 @@ export default function App() {
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
+  /* Seller needs a session to attribute listings; admin needs the email
+     allowlist on top. A stale "seller" preference must not leak through
+     after signing out. */
+  const activeRole = !user ? "buyer" : role === "admin" && !isAdmin ? "buyer" : role;
+
   return (
     <div
       style={{
@@ -305,6 +341,8 @@ export default function App() {
         ${FONT_IMPORT}
         @keyframes blade-spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
         @keyframes toast-in { from { opacity:0; transform: translate(-50%,12px);} to {opacity:1; transform: translate(-50%,0);} }
+        @keyframes pop-in { from { opacity:0; transform: translateY(-6px);} to {opacity:1; transform: translateY(0);} }
+        @keyframes auth-in { from { opacity:0; transform: translateY(14px);} to {opacity:1; transform: translateY(0);} }
         .disp { font-family:'Rajdhani',sans-serif; }
         .tap { transition: transform 150ms ${EASE}, opacity 150ms ${EASE}; }
         .tap:active { transform: scale(0.96); opacity:0.85; }
@@ -313,6 +351,13 @@ export default function App() {
           * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
         }
       `}</style>
+
+      {/* AUTH VIEW — replaces the site, but stays inside this wrapper so the
+          font import, .disp/.tap classes and keyframes above still apply. */}
+      {route.mode ? (
+        <AuthPage mode={route.mode} next={route.next} onClose={leaveAuth} />
+      ) : (
+      <>
 
       {/* NAV */}
       <nav
@@ -325,36 +370,38 @@ export default function App() {
           transition: `all 400ms ${EASE}`,
         }}
       >
-        <div className="flex items-center gap-2">
-          <div style={{ width: 22, height: 22 }}>
-            <svg viewBox="0 0 44 44" width="22" height="22">
-              <circle cx="22" cy="22" r="20" fill="none" stroke="#FF4425" strokeWidth="3" />
-              <polygon points="22,12 30,22 22,32 14,22" fill="#00E6C3" />
-            </svg>
-          </div>
-          <span className="disp font-bold tracking-wide text-lg">BLADE CITY <span style={{ color: "#FF4425" }}>BLR</span></span>
-        </div>
+        <a href="#top" className="tap flex items-center gap-2.5">
+          <img src={bbaLogo} alt="Bangalore Beyblade Association" width={34} height={34} style={{ display: "block" }} />
+          {/* full name where there's room; the association's own BBA mark below that */}
+          <span className="disp font-bold tracking-wide text-lg hidden lg:inline">
+            BANGALORE BEYBLADE <span style={{ color: "#FF4425" }}>ASSOCIATION</span>
+          </span>
+          <span className="disp font-bold tracking-wide text-lg lg:hidden">BBA</span>
+        </a>
         <div className="hidden md:flex items-center gap-7 text-sm" style={{ color: "#C7CCDA" }}>
           <a href="#timeline" className="tap hover:text-white">Timeline</a>
           <a href="#videos" className="tap hover:text-white">Videos</a>
           <a href="#leaderboard" className="tap hover:text-white">Leaderboard</a>
           <a href="#market" className="tap hover:text-white">Shop</a>
         </div>
-        <button
-          onClick={() => setCartOpen(true)}
-          className="tap relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
-          style={{ background: "#FF4425", color: "#0A0D18" }}
-        >
-          Cart
-          {cartCount > 0 && (
-            <span
-              className="absolute -top-2 -right-2 rounded-full flex items-center justify-center"
-              style={{ width: 20, height: 20, background: "#00E6C3", color: "#0A0D18", fontSize: 11, fontWeight: 700 }}
-            >
-              {cartCount}
-            </span>
-          )}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setCartOpen(true)}
+            className="tap relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+            style={{ background: "#FF4425", color: "#0A0D18" }}
+          >
+            Cart
+            {cartCount > 0 && (
+              <span
+                className="absolute -top-2 -right-2 rounded-full flex items-center justify-center"
+                style={{ width: 20, height: 20, background: "#00E6C3", color: "#0A0D18", fontSize: 11, fontWeight: 700 }}
+              >
+                {cartCount}
+              </span>
+            )}
+          </button>
+          <AccountMenu onSignedOut={() => fireToast("Signed out")} />
+        </div>
       </nav>
 
       {/* HERO */}
@@ -395,7 +442,7 @@ export default function App() {
           </div>
         </div>
         <div className="flex-1 flex justify-center">
-          <SpinDial size={280} />
+          <SpinningBey size={280} alt="Beyblade X top spinning" />
         </div>
       </header>
 
@@ -455,7 +502,7 @@ export default function App() {
                   className="rounded-xl shrink-0 flex items-center justify-center"
                   style={{ width: 64, height: 64, background: "#1C2136" }}
                 >
-                  <SpinDial size={40} speed={i % 2 ? 10 : 14} />
+                  <SpinningBey size={40} speed={i % 2 ? 2.2 : 3} />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -556,19 +603,34 @@ export default function App() {
           <p style={{ color: "#9AA1B4" }} className="mb-6">Demo of the buyer, seller and admin experience — data is shared and stored live for this artifact.</p>
         </Reveal>
 
-        <RoleTabs role={role} setRole={setRole} />
+        <RoleTabs
+          role={activeRole}
+          setRole={setRole}
+          signedIn={!!user}
+          isAdmin={isAdmin}
+          onLocked={() => goAuth("login", "market")}
+        />
         <p className="text-sm mt-3 mb-2" style={{ color: "#9AA1B4" }}>
-          {role === "buyer" && "Browse parts approved sellers have listed, and add them to your cart."}
-          {role === "seller" && "List parts for sale. New listings go to the admin for approval before buyers can see them."}
-          {role === "admin" && "Review and approve or reject listings before they go live in the shop."}
+          {activeRole === "buyer" && "Browse parts approved sellers have listed, and add them to your cart."}
+          {activeRole === "seller" && "List parts for sale. New listings go to the admin for approval before buyers can see them."}
+          {activeRole === "admin" && "Review and approve or reject listings before they go live in the shop."}
         </p>
+        {!user && (
+          <p className="text-xs mb-2" style={{ color: "#7A8194" }}>
+            <button onClick={() => goAuth("login", "market")} className="tap font-semibold" style={{ color: "#00E6C3" }}>
+              Sign in
+            </button>{" "}
+            to list parts for sale.
+          </p>
+        )}
 
         <div className="mt-6">
-          {role === "buyer" && (
+          {activeRole === "buyer" && (
             <BuyerPanel products={products.filter((p) => p.status === "approved")} onAdd={addToCart} loaded={loaded} />
           )}
-          {role === "seller" && (
+          {activeRole === "seller" && (
             <SellerPanel
+              seller={user}
               products={products}
               onCreate={(p) => {
                 const next = [...products, p];
@@ -577,7 +639,7 @@ export default function App() {
               }}
             />
           )}
-          {role === "admin" && (
+          {activeRole === "admin" && (
             <AdminPanel
               products={products}
               onDecide={(id, status) => {
@@ -590,8 +652,12 @@ export default function App() {
         </div>
       </section>
 
-      <footer className="text-center text-xs py-10" style={{ color: "#4A5070" }}>
-        Blade City BLR — an independent Bangalore Beyblade X community project. Not affiliated with TAKARA TOMY.
+      <footer className="flex flex-col items-center gap-3 text-center text-xs py-10" style={{ color: "#4A5070" }}>
+        <img src={bbaLogo} alt="" width={72} height={72} style={{ display: "block", opacity: 0.85 }} />
+        <p>
+          Bangalore Beyblade Association — an independent community project for the
+          city's Beyblade X scene. Not affiliated with TAKARA TOMY.
+        </p>
       </footer>
 
       {/* CART DRAWER */}
@@ -642,9 +708,19 @@ export default function App() {
               <span style={{ color: "#9AA1B4" }}>Total</span>
               <span className="font-semibold" style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{cartTotal}</span>
             </div>
+            {!user && cart.length > 0 && (
+              <p className="text-xs mb-3" style={{ color: "#7A8194" }}>
+                Sign in to place your order — we need somewhere to send it.
+              </p>
+            )}
             <button
               onClick={() => {
                 if (!cart.length) return;
+                if (!user) {
+                  setCartOpen(false);
+                  goAuth("login", "cart");
+                  return;
+                }
                 setCart([]);
                 setCartOpen(false);
                 fireToast("Order placed (demo checkout)");
@@ -652,11 +728,13 @@ export default function App() {
               className="tap w-full py-3 rounded-full font-semibold text-sm"
               style={{ background: "#FF4425", color: "#0A0D18" }}
             >
-              Checkout
+              {user ? "Checkout" : "Sign in to checkout"}
             </button>
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* TOAST */}
       {toast && (
@@ -675,22 +753,27 @@ export default function App() {
   );
 }
 
-/* ---------- role tabs ---------- */
-function RoleTabs({ role, setRole }) {
+/* ---------- role tabs ----------
+   Selling needs a session so listings can be attributed to a real
+   account. Admin needs the email allowlist too, so it is hidden
+   rather than locked — no point advertising it. */
+function RoleTabs({ role, setRole, signedIn, isAdmin, onLocked }) {
   const tabs = [
-    ["buyer", "Buyer"],
-    ["seller", "Seller"],
-    ["admin", "Admin"],
+    ["buyer", "Buyer", false],
+    ["seller", "Seller", !signedIn],
   ];
+  if (isAdmin) tabs.push(["admin", "Admin", false]);
+
   return (
     <div className="inline-flex p-1 rounded-full" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-      {tabs.map(([k, label]) => (
+      {tabs.map(([k, label, locked]) => (
         <button
           key={k}
-          onClick={() => setRole(k)}
+          onClick={() => (locked ? onLocked() : setRole(k))}
+          title={locked ? "Sign in to list parts for sale" : undefined}
           className="tap px-5 py-2 rounded-full text-sm font-semibold relative"
           style={{
-            color: role === k ? "#0A0D18" : "#9AA1B4",
+            color: role === k ? "#0A0D18" : locked ? "#5A6178" : "#9AA1B4",
             background: role === k ? "#00E6C3" : "transparent",
             transition: `all 300ms ${EASE}`,
           }}
@@ -761,21 +844,21 @@ function BuyerPanel({ products, onAdd, loaded }) {
 }
 
 /* ---------- seller ---------- */
-function SellerPanel({ products, onCreate }) {
-  const mine = products.filter((p) => p.sellerId === SELLER_ME.id);
+function SellerPanel({ seller, products, onCreate }) {
+  const mine = products.filter((p) => p.sellerId === seller?.uid);
   const [form, setForm] = useState({ name: "", price: "", category: "Attack", stock: "" });
 
   const submit = (e) => {
     e.preventDefault();
-    if (!form.name || !form.price) return;
+    if (!seller || !form.name || !form.price) return;
     onCreate({
       id: "p" + Date.now(),
       name: form.name,
       price: Number(form.price),
       category: form.category,
       stock: Number(form.stock) || 1,
-      sellerId: SELLER_ME.id,
-      sellerName: SELLER_ME.name,
+      sellerId: seller.uid,
+      sellerName: seller.name,
       status: "pending",
     });
     setForm({ name: "", price: "", category: "Attack", stock: "" });
@@ -785,6 +868,9 @@ function SellerPanel({ products, onCreate }) {
     <div className="grid md:grid-cols-2 gap-8">
       <div>
         <h3 className="font-semibold mb-4">List a new part</h3>
+        <p className="text-xs mb-3" style={{ color: "#7A8194" }}>
+          Listing as <span style={{ color: "#00E6C3" }}>{seller?.name}</span>.
+        </p>
         <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
           <input
             placeholder="Part name"

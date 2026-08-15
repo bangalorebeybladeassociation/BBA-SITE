@@ -1,7 +1,8 @@
-# Blade City BLR
+# Bangalore Beyblade Association
 
-Bangalore Beyblade X tournament hub — landing page, tournament timeline,
-promo videos, leaderboard, and a buyer/seller/admin marketplace.
+Official site for the Bangalore Beyblade Association (BBA) — Beyblade X
+tournament hub with a landing page, tournament timeline, promo videos,
+leaderboard, and a buyer/seller/admin marketplace.
 
 ## Stack
 
@@ -21,11 +22,20 @@ npm run lint        # eslint
 ## Project structure
 
 ```
+public/
+  favicon.png    # 96px association logo, served as the tab icon
 src/
   App.jsx        # all page sections (hero, timeline, videos, leaderboard, marketplace)
   main.jsx       # React entry point
   index.css      # Tailwind entry + global styles
+  assets/
+    beyblade.png # hero bey render, spun by the SpinningBey component
+    bba-logo.png # association logo, used in the nav and footer
 ```
+
+The logo's outer ring lettering is light-on-transparent, so it is designed to
+sit on the dark background as-is — don't place it on a white card, which
+erases the ring text.
 
 ## Marketplace data
 
