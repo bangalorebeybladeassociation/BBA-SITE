@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -31,9 +31,15 @@ export default function AuthProvider({ children }) {
   const [loading, setLoading] = useState(firebaseReady);
   const [role, setRole] = useState("buyer");
 
+  // While signUp() is applying a display name, the auth-state listener can
+  // fire first with the name still unset — skip that intermediate event so
+  // downstream effects (e.g. the "Signed in as ..." toast) see the final name.
+  const pendingName = useRef(null);
+
   useEffect(() => {
     if (!firebaseReady) return;
     return onAuthStateChanged(auth, (fbUser) => {
+      if (fbUser && pendingName.current && !fbUser.displayName) return;
       setUser(toAppUser(fbUser));
       setLoading(false);
     });
@@ -47,9 +53,15 @@ export default function AuthProvider({ children }) {
       setRole,
       isAdmin: isAdminEmail(user?.email),
       async signUp(name, email, password) {
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        if (name) await updateProfile(cred.user, { displayName: name });
-        setUser(toAppUser({ ...cred.user, displayName: name || cred.user.displayName }));
+        pendingName.current = name || null;
+        try {
+          const cred = await createUserWithEmailAndPassword(auth, email, password);
+          if (name) await updateProfile(cred.user, { displayName: name });
+          setUser(toAppUser(cred.user));
+          setLoading(false);
+        } finally {
+          pendingName.current = null;
+        }
       },
       async signIn(email, password) {
         await signInWithEmailAndPassword(auth, email, password);
