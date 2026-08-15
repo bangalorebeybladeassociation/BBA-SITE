@@ -1,9 +1,9 @@
 import { createContext, useContext } from "react";
 
 /* ---------------------------------------------------------
-   Placeholder auth context — no real backend wired up yet.
-   Shape matches what App.jsx expects: user/loading/role/
-   setRole/isAdmin. AuthProvider supplies the real values.
+   Shape AuthProvider supplies. user/loading/role/setRole/
+   isAdmin are read by App.jsx; the action functions are used
+   by AuthPage's forms.
 --------------------------------------------------------- */
 export const AuthContext = createContext({
   user: null,
@@ -11,7 +11,10 @@ export const AuthContext = createContext({
   role: "buyer",
   setRole: () => {},
   isAdmin: false,
-  signOut: () => {},
+  signUp: async () => {},
+  signIn: async () => {},
+  signInWithGoogle: async () => {},
+  signOutUser: async () => {},
 });
 
 export function useAuth() {
