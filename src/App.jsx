@@ -399,6 +399,28 @@ export default function App() {
         </div>
       </header>
 
+      {/* QUICK NAV — orients a first-time visitor to what's on this page */}
+      <Reveal className="max-w-6xl mx-auto px-5 md:px-10 pb-16">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            ["#timeline", "Timeline", "Every event, past and upcoming, with live brackets"],
+            ["#videos", "Videos", "Match highlights and judge breakdowns"],
+            ["#leaderboard", "Leaderboard", "Season 3 rankings across all events"],
+            ["#market", "Shop", "Buy parts, or sell your own as an approved seller"],
+          ].map(([href, title, desc]) => (
+            <a
+              key={href}
+              href={href}
+              className="tap p-4 rounded-2xl block"
+              style={{ background: "#141827", border: "1px solid #1C2136" }}
+            >
+              <div className="disp font-semibold text-base" style={{ color: "#00E6C3" }}>{title}</div>
+              <div className="text-xs mt-1" style={{ color: "#9AA1B4" }}>{desc}</div>
+            </a>
+          ))}
+        </div>
+      </Reveal>
+
       {/* STATS STRIP */}
       <Reveal className="max-w-6xl mx-auto px-5 md:px-10 grid grid-cols-2 md:grid-cols-4 gap-6 pb-24">
         {[
@@ -418,7 +440,8 @@ export default function App() {
       <section id="timeline" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
         <Reveal>
           <h2 className="disp font-bold text-3xl mb-2">Tournament Timeline</h2>
-          <p style={{ color: "#9AA1B4" }} className="mb-10">Every event, past and upcoming — tap a bracket to open it live on Challonge.</p>
+          <p style={{ color: "#9AA1B4" }} className="mb-2">Every event, past and upcoming — tap a bracket to open it live on Challonge.</p>
+          <p className="text-xs mb-10" style={{ color: "#7A8194" }}>New to brackets? Challonge is a free third-party tool that runs the live match tree — you don't need an account to view it, only to compete.</p>
         </Reveal>
         <div className="relative pl-8" style={{ borderLeft: "2px solid #1C2136" }}>
           {TOURNAMENTS.map((t, i) => (
@@ -534,6 +557,11 @@ export default function App() {
         </Reveal>
 
         <RoleTabs role={role} setRole={setRole} />
+        <p className="text-sm mt-3 mb-2" style={{ color: "#9AA1B4" }}>
+          {role === "buyer" && "Browse parts approved sellers have listed, and add them to your cart."}
+          {role === "seller" && "List parts for sale. New listings go to the admin for approval before buyers can see them."}
+          {role === "admin" && "Review and approve or reject listings before they go live in the shop."}
+        </p>
 
         <div className="mt-6">
           {role === "buyer" && (
