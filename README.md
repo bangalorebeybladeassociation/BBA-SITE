@@ -34,6 +34,14 @@ storage (`window.storage`) when running inside a Claude artifact. Outside
 that environment, swap the calls in `src/App.jsx` (search `window.storage`)
 for your own backend/API.
 
+## Deployment
+
+Pushing to `main` triggers `.github/workflows/deploy.yml`, which builds the
+site and publishes it to GitHub Pages automatically. One-time setup on
+GitHub's side: **Settings → Pages → Source → GitHub Actions**.
+
+Live URL: `https://<your-github-username-or-org>.github.io/BBA-SITE/`
+
 ## Roadmap / known gaps
 
 - No real authentication — the Buyer / Seller / Admin tabs are a UI
