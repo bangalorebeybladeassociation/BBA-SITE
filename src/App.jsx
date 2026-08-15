@@ -5,33 +5,32 @@ import { useAuth } from "./auth/context";
 import AuthPage from "./pages/AuthPage";
 import AccountMenu from "./components/AccountMenu";
 import { readAuthRoute, goAuth, leaveAuth, ROUTE_EVENT } from "./lib/authRoute";
-
-/* ---------------------------------------------------------
-   Storage fallback: window.storage is provided by the Claude
-   artifact host. Outside that host (e.g. this standalone repo)
-   fall back to localStorage so the app still works.
---------------------------------------------------------- */
-if (typeof window !== "undefined" && !window.storage) {
-  window.storage = {
-    async get(key) {
-      const raw = localStorage.getItem(key);
-      if (raw === null) throw new Error("not found");
-      return { key, value: raw, shared: false };
-    },
-    async set(key, value) {
-      localStorage.setItem(key, value);
-      return { key, value, shared: false };
-    },
-    async delete(key) {
-      localStorage.removeItem(key);
-      return { key, deleted: true, shared: false };
-    },
-    async list(prefix = "") {
-      const keys = Object.keys(localStorage).filter((k) => k.startsWith(prefix));
-      return { keys, prefix, shared: false };
-    },
-  };
-}
+import { firebaseReady } from "./lib/firebase";
+import {
+  listenEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  listenLeaderboard,
+  createLeaderboardEntry,
+  updateLeaderboardEntry,
+  deleteLeaderboardEntry,
+  listenRulebook,
+  setRulebook,
+  listenApprovedProducts,
+  listenSellerProducts,
+  listenAllProducts,
+  createProduct,
+  decideProduct,
+  listenUserProfile,
+  setUserRole,
+  setUserPaymentInfo,
+  findUserByEmail,
+  createOrdersForCart,
+  listenMyOrders,
+  listenSellerOrders,
+  setOrderStatus,
+} from "./lib/firestore";
 
 /* ---------------------------------------------------------
    BANGALORE BEYBLADE ASSOCIATION — tournament hub + shop
@@ -162,59 +161,116 @@ function useToast() {
   return [toast, fire];
 }
 
+/* ---------- live Firestore data hooks ----------
+   Public collections (events/leaderboard/rulebook) are always
+   subscribed — they're readable signed out. Role-scoped
+   collections (products/orders) only subscribe once the
+   relevant uid/permission is available, since firestore.rules
+   rejects unfiltered queries from anyone but an admin.        */
+function useEvents() {
+  const [events, setEvents] = useState([]);
+  useEffect(() => {
+    if (!firebaseReady) return;
+    return listenEvents(setEvents);
+  }, []);
+  return events;
+}
+
+function useLeaderboardRows() {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    if (!firebaseReady) return;
+    return listenLeaderboard(setRows);
+  }, []);
+  return [...rows].sort((a, b) => (b.points || 0) - (a.points || 0));
+}
+
+function useRulebookText() {
+  const [text, setText] = useState("");
+  useEffect(() => {
+    if (!firebaseReady) return;
+    return listenRulebook(setText);
+  }, []);
+  return text;
+}
+
+function useApprovedProducts() {
+  const [products, setProducts] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    if (!firebaseReady) {
+      setLoaded(true);
+      return;
+    }
+    return listenApprovedProducts((list) => {
+      setProducts(list);
+      setLoaded(true);
+    });
+  }, []);
+  return [products, loaded];
+}
+
+function useSellerProducts(uid) {
+  const [products, setProducts] = useState([]);
+  useEffect(() => {
+    if (!uid) {
+      setProducts([]);
+      return;
+    }
+    return listenSellerProducts(uid, setProducts);
+  }, [uid]);
+  return products;
+}
+
+function useAllProducts(enabled) {
+  const [products, setProducts] = useState([]);
+  useEffect(() => {
+    if (!enabled) {
+      setProducts([]);
+      return;
+    }
+    return listenAllProducts(setProducts);
+  }, [enabled]);
+  return products;
+}
+
+function useMyProfile(uid) {
+  const [profile, setProfile] = useState(null);
+  useEffect(() => {
+    if (!uid) {
+      setProfile(null);
+      return;
+    }
+    return listenUserProfile(uid, setProfile);
+  }, [uid]);
+  return profile;
+}
+
+function useMyOrders(uid) {
+  const [orders, setOrders] = useState([]);
+  useEffect(() => {
+    if (!uid) {
+      setOrders([]);
+      return;
+    }
+    return listenMyOrders(uid, setOrders);
+  }, [uid]);
+  return orders;
+}
+
+function useSellerOrders(uid, enabled) {
+  const [orders, setOrders] = useState([]);
+  useEffect(() => {
+    if (!uid || !enabled) {
+      setOrders([]);
+      return;
+    }
+    return listenSellerOrders(uid, setOrders);
+  }, [uid, enabled]);
+  return orders;
+}
+
 /* ================= DATA ================= */
-
-const TOURNAMENTS = [
-  {
-    id: "t1",
-    name: "Whitefield Winter Clash",
-    date: "12 Jan 2026",
-    venue: "Whitefield Community Hall",
-    format: "Double Elimination · 27 Bladers",
-    status: "Completed",
-    accent: "#FF4425",
-    bracketUrl: "https://challonge.com/",
-  },
-  {
-    id: "t2",
-    name: "Indiranagar Spin Series #4",
-    date: "8 Mar 2026",
-    venue: "Sports Arena, 100ft Road",
-    format: "Swiss + Top Cut · 40 Bladers",
-    status: "Completed",
-    accent: "#00E6C3",
-    bracketUrl: "https://challonge.com/",
-  },
-  {
-    id: "t3",
-    name: "Koramangala X-Open",
-    date: "21 Jun 2026",
-    venue: "Sportsdock, Koramangala",
-    format: "Round Robin Pools · 32 Bladers",
-    status: "Completed",
-    accent: "#FFC240",
-    bracketUrl: "https://challonge.com/",
-  },
-  {
-    id: "t4",
-    name: "Bangalore Regional Championship",
-    date: "6 Sep 2026",
-    venue: "TBA — Central Bangalore",
-    format: "WBO-judged Double Elimination",
-    status: "Upcoming",
-    accent: "#FF4425",
-    bracketUrl: "https://challonge.com/",
-  },
-];
-
-const LEADERBOARD = [
-  { rank: 1, name: "Aryan K.", region: "Whitefield", pts: 1420, wl: "38-6" },
-  { rank: 2, name: "Zoya M.", region: "Indiranagar", pts: 1355, wl: "34-9" },
-  { rank: 3, name: "Rehan S.", region: "Koramangala", pts: 1290, wl: "31-10" },
-  { rank: 4, name: "Diya P.", region: "HSR Layout", pts: 1180, wl: "27-12" },
-  { rank: 5, name: "Kabir V.", region: "Jayanagar", pts: 1120, wl: "25-13" },
-  { rank: 6, name: "Sana R.", region: "Whitefield", pts: 1065, wl: "22-14" },
-];
 
 const VIDEOS = [
   { id: "v1", title: "Whitefield Winter Clash — Grand Final", dur: "4:12" },
@@ -223,14 +279,11 @@ const VIDEOS = [
   { id: "v4", title: "Launcher Tech: Pull-Speed Comparison", dur: "5:02" },
 ];
 
-const SEED_PRODUCTS = [
-  { id: "p1", name: "Dran Sword 3-60F", price: 799, category: "Attack", stock: 12, sellerId: "seller-arjun", sellerName: "Arjun's Bey Depot", status: "approved" },
-  { id: "p2", name: "Wizard Arrow 4-80B", price: 849, category: "Balance", stock: 7, sellerId: "seller-arjun", sellerName: "Arjun's Bey Depot", status: "approved" },
-  { id: "p3", name: "Knight Shield 3-60GF", price: 899, category: "Defense", stock: 5, sellerId: "seller-priya", sellerName: "Priya Blade Hub", status: "approved" },
-  { id: "p4", name: "X-Launcher Grip (Red)", price: 549, category: "Launcher", stock: 20, sellerId: "seller-priya", sellerName: "Priya Blade Hub", status: "approved" },
-];
-
-const CATS = ["All", "Attack", "Defense", "Balance", "Stamina", "Launcher"];
+// Product taxonomy: what kind of item, its condition, and — only for
+// Beyblades themselves — the gameplay archetype.
+const ITEM_TYPES = ["Beyblade", "Stadium", "Launcher", "Parts"];
+const CONDITIONS = ["NIB", "NIP", "Used"];
+const BEYBLADE_CATEGORIES = ["Attack", "Defense", "Balance", "Stamina"];
 
 /* ================= APP ================= */
 
@@ -239,12 +292,22 @@ export default function App() {
   const [toast, fireToast] = useToast();
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [ordersOpen, setOrdersOpen] = useState(false);
+  const [checkoutResult, setCheckoutResult] = useState(null);
 
-  const [products, setProducts] = useState(SEED_PRODUCTS);
-  const [loaded, setLoaded] = useState(false);
-
-  const { user, loading: authLoading, role, setRole, isAdmin } = useAuth();
+  const { user, loading: authLoading, role, setRole, isAdmin, isSeller } = useAuth();
   const [route, setRoute] = useState(readAuthRoute);
+
+  const events = useEvents();
+  const leaderboard = useLeaderboardRows();
+  const rulebookText = useRulebookText();
+  const myProfile = useMyProfile(user?.uid);
+
+  const [approvedProducts, productsLoaded] = useApprovedProducts();
+  const sellerProducts = useSellerProducts(isSeller ? user?.uid : null);
+  const allProducts = useAllProducts(isAdmin);
+  const myOrders = useMyOrders(user?.uid);
+  const sellerOrders = useSellerOrders(user?.uid, isSeller);
 
   useEffect(() => {
     const onScroll = () => setNav(window.scrollY > 40);
@@ -284,33 +347,6 @@ export default function App() {
     }
   }, [authLoading, user, route, fireToast]);
 
-  // load / seed shared marketplace data
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await window.storage.get("marketplace:products", true);
-        if (res && res.value) {
-          setProducts(JSON.parse(res.value));
-        } else {
-          await window.storage.set("marketplace:products", JSON.stringify(SEED_PRODUCTS), true);
-        }
-      } catch (e) {
-        // fall back to local seed silently
-      } finally {
-        setLoaded(true);
-      }
-    })();
-  }, []);
-
-  const persist = async (next) => {
-    setProducts(next);
-    try {
-      await window.storage.set("marketplace:products", JSON.stringify(next), true);
-    } catch (e) {
-      /* ignore — demo still works locally */
-    }
-  };
-
   const addToCart = (p) => {
     setCart((c) => {
       const found = c.find((x) => x.id === p.id);
@@ -323,10 +359,27 @@ export default function App() {
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
-  /* Seller needs a session to attribute listings; admin needs the email
-     allowlist on top. A stale "seller" preference must not leak through
-     after signing out. */
-  const activeRole = !user ? "buyer" : role === "admin" && !isAdmin ? "buyer" : role;
+  const checkout = async () => {
+    if (!cart.length) return;
+    if (!user) {
+      setCartOpen(false);
+      goAuth("login", "cart");
+      return;
+    }
+    try {
+      const orders = await createOrdersForCart(cart, user);
+      setCart([]);
+      setCartOpen(false);
+      setCheckoutResult(orders);
+    } catch (e) {
+      fireToast("Couldn't place order — please try again");
+    }
+  };
+
+  /* Seller/Admin tabs need a real granted role, not just a session — a
+     stale "seller" preference must not leak through after signing out or
+     after an admin revokes access. */
+  const activeRole = !user ? "buyer" : role === "seller" && !isSeller ? "buyer" : role === "admin" && !isAdmin ? "buyer" : role;
 
   return (
     <div
@@ -382,6 +435,7 @@ export default function App() {
           <a href="#timeline" className="tap hover:text-white">Timeline</a>
           <a href="#videos" className="tap hover:text-white">Videos</a>
           <a href="#leaderboard" className="tap hover:text-white">Leaderboard</a>
+          <a href="#rulebook" className="tap hover:text-white">Rulebook</a>
           <a href="#market" className="tap hover:text-white">Shop</a>
         </div>
         <div className="flex items-center gap-3">
@@ -400,7 +454,7 @@ export default function App() {
               </span>
             )}
           </button>
-          <AccountMenu onSignedOut={() => fireToast("Signed out")} />
+          <AccountMenu onSignedOut={() => fireToast("Signed out")} onOpenOrders={() => setOrdersOpen(true)} />
         </div>
       </nav>
 
@@ -490,12 +544,15 @@ export default function App() {
           <p style={{ color: "#9AA1B4" }} className="mb-2">Every event, past and upcoming — tap a bracket to open it live on Challonge.</p>
           <p className="text-xs mb-10" style={{ color: "#7A8194" }}>New to brackets? Challonge is a free third-party tool that runs the live match tree — you don't need an account to view it, only to compete.</p>
         </Reveal>
+        {events.length === 0 ? (
+          <p className="text-sm" style={{ color: "#7A8194" }}>No events posted yet — check back soon.</p>
+        ) : (
         <div className="relative pl-8" style={{ borderLeft: "2px solid #1C2136" }}>
-          {TOURNAMENTS.map((t, i) => (
+          {events.map((t, i) => (
             <Reveal key={t.id} delay={i * 80} className="relative mb-10 last:mb-0">
               <div
                 className="absolute rounded-full"
-                style={{ left: -37, top: 6, width: 14, height: 14, background: t.accent, boxShadow: `0 0 0 4px #0A0D18` }}
+                style={{ left: -37, top: 6, width: 14, height: 14, background: t.accent || "#FF4425", boxShadow: `0 0 0 4px #0A0D18` }}
               />
               <div className="p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-4" style={{ background: "#141827", border: "1px solid #1C2136" }}>
                 <div
@@ -510,18 +567,18 @@ export default function App() {
                     <span
                       className="text-xs font-semibold px-2 py-0.5 rounded-full"
                       style={{
-                        background: t.status === "Upcoming" ? "#00E6C31A" : "#7A81941A",
-                        color: t.status === "Upcoming" ? "#00E6C3" : "#9AA1B4",
+                        background: t.status === "upcoming" ? "#00E6C31A" : "#7A81941A",
+                        color: t.status === "upcoming" ? "#00E6C3" : "#9AA1B4",
                       }}
                     >
-                      {t.status}
+                      {t.status === "upcoming" ? "Upcoming" : "Completed"}
                     </span>
                   </div>
                   <p className="text-sm mt-1" style={{ color: "#9AA1B4" }}>{t.date} · {t.venue}</p>
                   <p className="text-sm" style={{ color: "#7A8194" }}>{t.format}</p>
                 </div>
                 <a
-                  href={t.bracketUrl}
+                  href={t.bracketUrl || "https://challonge.com/"}
                   target="_blank"
                   rel="noreferrer"
                   className="tap px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap"
@@ -533,6 +590,7 @@ export default function App() {
             </Reveal>
           ))}
         </div>
+        )}
       </section>
 
       {/* VIDEOS */}
@@ -576,23 +634,42 @@ export default function App() {
           <h2 className="disp font-bold text-3xl mb-2">Season 3 Leaderboard</h2>
           <p style={{ color: "#9AA1B4" }} className="mb-10">Points from all sanctioned Bangalore events, merged by ranking.</p>
         </Reveal>
+        {leaderboard.length === 0 ? (
+          <p className="text-sm" style={{ color: "#7A8194" }}>No standings posted yet.</p>
+        ) : (
         <div className="rounded-2xl overflow-hidden" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-          {LEADERBOARD.map((row, i) => (
-            <Reveal key={row.rank} delay={i * 50}>
+          {leaderboard.map((row, i) => (
+            <Reveal key={row.id} delay={i * 50}>
               <div
                 className="flex items-center gap-4 px-5 py-4"
                 style={{ borderTop: i ? "1px solid #1C2136" : "none" }}
               >
-                <RankRing rank={row.rank} />
+                <RankRing rank={i + 1} />
                 <div className="flex-1">
                   <div className="font-semibold">{row.name}</div>
                   <div className="text-xs" style={{ color: "#7A8194" }}>{row.region}</div>
                 </div>
-                <div className="text-xs hidden sm:block" style={{ color: "#9AA1B4", fontFamily: "'JetBrains Mono',monospace" }}>{row.wl}</div>
-                <div className="disp font-bold text-lg" style={{ color: "#00E6C3", width: 70, textAlign: "right" }}>{row.pts}</div>
+                <div className="text-xs hidden sm:block" style={{ color: "#9AA1B4", fontFamily: "'JetBrains Mono',monospace" }}>{row.wins ?? 0}-{row.losses ?? 0}</div>
+                <div className="disp font-bold text-lg" style={{ color: "#00E6C3", width: 70, textAlign: "right" }}>{row.points}</div>
               </div>
             </Reveal>
           ))}
+        </div>
+        )}
+      </section>
+
+      {/* RULEBOOK */}
+      <section id="rulebook" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
+        <Reveal>
+          <h2 className="disp font-bold text-3xl mb-2">Rulebook</h2>
+          <p style={{ color: "#9AA1B4" }} className="mb-10">Judged to WBO standard, with Bangalore-specific additions below.</p>
+        </Reveal>
+        <div className="p-6 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+          {rulebookText ? (
+            <p className="text-sm leading-relaxed" style={{ color: "#C7CCDA", whiteSpace: "pre-wrap" }}>{rulebookText}</p>
+          ) : (
+            <p className="text-sm" style={{ color: "#7A8194" }}>The rulebook hasn't been published yet.</p>
+          )}
         </div>
       </section>
 
@@ -600,53 +677,67 @@ export default function App() {
       <section id="market" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
         <Reveal>
           <h2 className="disp font-bold text-3xl mb-2">Marketplace</h2>
-          <p style={{ color: "#9AA1B4" }} className="mb-6">Demo of the buyer, seller and admin experience — data is shared and stored live for this artifact.</p>
+          <p style={{ color: "#9AA1B4" }} className="mb-6">Buy from approved sellers, or manage your own inventory once an admin enables selling for your account.</p>
         </Reveal>
 
         <RoleTabs
           role={activeRole}
           setRole={setRole}
-          signedIn={!!user}
+          isSeller={isSeller}
           isAdmin={isAdmin}
-          onLocked={() => goAuth("login", "market")}
+          onLocked={() =>
+            fireToast(user ? "Ask an admin to enable selling for your account" : "Sign in first")
+          }
         />
         <p className="text-sm mt-3 mb-2" style={{ color: "#9AA1B4" }}>
           {activeRole === "buyer" && "Browse parts approved sellers have listed, and add them to your cart."}
           {activeRole === "seller" && "List parts for sale. New listings go to the admin for approval before buyers can see them."}
-          {activeRole === "admin" && "Review and approve or reject listings before they go live in the shop."}
+          {activeRole === "admin" && "Manage listings, roles, events, the leaderboard, and the rulebook."}
         </p>
         {!user && (
           <p className="text-xs mb-2" style={{ color: "#7A8194" }}>
             <button onClick={() => goAuth("login", "market")} className="tap font-semibold" style={{ color: "#00E6C3" }}>
               Sign in
             </button>{" "}
-            to list parts for sale.
+            to buy or sell.
           </p>
         )}
 
         <div className="mt-6">
           {activeRole === "buyer" && (
-            <BuyerPanel products={products.filter((p) => p.status === "approved")} onAdd={addToCart} loaded={loaded} />
+            <BuyerPanel products={approvedProducts} onAdd={addToCart} loaded={productsLoaded} />
           )}
           {activeRole === "seller" && (
             <SellerPanel
               seller={user}
-              products={products}
-              onCreate={(p) => {
-                const next = [...products, p];
-                persist(next);
+              profile={myProfile}
+              products={sellerProducts}
+              orders={sellerOrders}
+              onCreate={async (p) => {
+                await createProduct(p);
                 fireToast("Listing submitted for admin approval");
+              }}
+              onSavePaymentInfo={async (info) => {
+                await setUserPaymentInfo(user.uid, info);
+                fireToast("Payment info saved");
+              }}
+              onMarkPaid={async (orderId) => {
+                await setOrderStatus(orderId, "paid");
+                fireToast("Order marked as paid");
               }}
             />
           )}
           {activeRole === "admin" && (
             <AdminPanel
-              products={products}
-              onDecide={(id, status) => {
-                const next = products.map((p) => (p.id === id ? { ...p, status } : p));
-                persist(next);
+              products={allProducts}
+              onDecide={async (id, status) => {
+                await decideProduct(id, status);
                 fireToast(status === "approved" ? "Listing approved" : "Listing rejected");
               }}
+              events={events}
+              leaderboard={leaderboard}
+              rulebookText={rulebookText}
+              fireToast={fireToast}
             />
           )}
         </div>
@@ -714,22 +805,95 @@ export default function App() {
               </p>
             )}
             <button
-              onClick={() => {
-                if (!cart.length) return;
-                if (!user) {
-                  setCartOpen(false);
-                  goAuth("login", "cart");
-                  return;
-                }
-                setCart([]);
-                setCartOpen(false);
-                fireToast("Order placed (demo checkout)");
-              }}
+              onClick={checkout}
               className="tap w-full py-3 rounded-full font-semibold text-sm"
               style={{ background: "#FF4425", color: "#0A0D18" }}
             >
               {user ? "Checkout" : "Sign in to checkout"}
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* CHECKOUT CONFIRMATION — payment is a manual/UPI handoff, so this is
+          where the buyer actually finds out how to pay each seller. */}
+      {checkoutResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
+          <div onClick={() => setCheckoutResult(null)} className="absolute inset-0" style={{ background: "rgba(0,0,0,0.6)" }} />
+          <div className="relative w-full max-w-md rounded-2xl p-6" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+            <h3 className="disp font-bold text-xl mb-1">Order placed</h3>
+            <p className="text-sm mb-5" style={{ color: "#9AA1B4" }}>
+              Pay each seller directly, then they'll mark your order as paid.
+            </p>
+            <div className="space-y-3 mb-5">
+              {checkoutResult.map((o) => (
+                <div key={o.id} className="p-4 rounded-xl" style={{ background: "#0A0D18", border: "1px solid #2A3050" }}>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="font-semibold">{o.sellerName}</span>
+                    <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{o.total}</span>
+                  </div>
+                  {o.sellerUpiId ? (
+                    <p className="text-xs" style={{ color: "#00E6C3" }}>UPI: {o.sellerUpiId}</p>
+                  ) : (
+                    <p className="text-xs" style={{ color: "#7A8194" }}>No UPI on file —</p>
+                  )}
+                  {o.sellerPaymentContact && (
+                    <p className="text-xs" style={{ color: "#9AA1B4" }}>Contact: {o.sellerPaymentContact}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setCheckoutResult(null)}
+              className="tap w-full py-2.5 rounded-full text-sm font-semibold"
+              style={{ background: "#FF4425", color: "#0A0D18" }}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MY ORDERS */}
+      <div className="fixed inset-0 z-50" style={{ pointerEvents: ordersOpen ? "auto" : "none" }}>
+        <div
+          onClick={() => setOrdersOpen(false)}
+          className="absolute inset-0"
+          style={{
+            background: "rgba(0,0,0,0.5)",
+            opacity: ordersOpen ? 1 : 0,
+            transition: `opacity 350ms ${EASE}`,
+            backdropFilter: "blur(2px)",
+          }}
+        />
+        <div
+          className="absolute right-0 top-0 h-full flex flex-col"
+          style={{
+            width: "min(420px,90vw)",
+            background: "#141827",
+            borderLeft: "1px solid #1C2136",
+            transform: ordersOpen ? "translateX(0)" : "translateX(100%)",
+            transition: `transform 420ms ${EASE}`,
+          }}
+        >
+          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid #1C2136" }}>
+            <h3 className="disp font-semibold text-lg">My Orders</h3>
+            <button onClick={() => setOrdersOpen(false)} className="tap text-sm" style={{ color: "#9AA1B4" }}>Close</button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+            {myOrders.length === 0 && <p style={{ color: "#7A8194" }} className="text-sm">No orders yet.</p>}
+            {myOrders.map((o) => (
+              <div key={o.id} className="p-4 rounded-xl" style={{ background: "#0A0D18", border: "1px solid #2A3050" }}>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="font-semibold">{o.sellerName}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{o.total}</span>
+                </div>
+                <OrderStatusBadge status={o.status} />
+                {o.status === "pending_payment" && o.sellerUpiId && (
+                  <p className="text-xs mt-2" style={{ color: "#00E6C3" }}>Pay via UPI: {o.sellerUpiId}</p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -754,13 +918,15 @@ export default function App() {
 }
 
 /* ---------- role tabs ----------
-   Selling needs a session so listings can be attributed to a real
-   account. Admin needs the email allowlist too, so it is hidden
-   rather than locked — no point advertising it. */
-function RoleTabs({ role, setRole, signedIn, isAdmin, onLocked }) {
+   Selling needs a real admin-granted role, so "Seller" is
+   locked (not hidden) until the account is nominated — same
+   treatment the old code gave signed-out users, now driven by
+   isSeller instead of just having a session. Admin stays
+   hidden entirely rather than advertised-but-locked.          */
+function RoleTabs({ role, setRole, isSeller, isAdmin, onLocked }) {
   const tabs = [
     ["buyer", "Buyer", false],
-    ["seller", "Seller", !signedIn],
+    ["seller", "Seller", !isSeller],
   ];
   if (isAdmin) tabs.push(["admin", "Admin", false]);
 
@@ -770,7 +936,7 @@ function RoleTabs({ role, setRole, signedIn, isAdmin, onLocked }) {
         <button
           key={k}
           onClick={() => (locked ? onLocked() : setRole(k))}
-          title={locked ? "Sign in to list parts for sale" : undefined}
+          title={locked ? "Ask an admin to enable selling for your account" : undefined}
           className="tap px-5 py-2 rounded-full text-sm font-semibold relative"
           style={{
             color: role === k ? "#0A0D18" : locked ? "#5A6178" : "#9AA1B4",
@@ -785,32 +951,67 @@ function RoleTabs({ role, setRole, signedIn, isAdmin, onLocked }) {
   );
 }
 
+/* ---------- small tab strip, reused across admin/seller sub-views ---------- */
+function TabStrip({ tabs, active, onChange }) {
+  return (
+    <div className="flex gap-2 flex-wrap mb-6">
+      {tabs.map(([k, label]) => (
+        <button
+          key={k}
+          onClick={() => onChange(k)}
+          className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
+          style={{
+            background: active === k ? "#FF4425" : "#141827",
+            color: active === k ? "#0A0D18" : "#9AA1B4",
+            border: "1px solid #1C2136",
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function fieldStyle() {
+  return { background: "#0A0D18", border: "1px solid #2A3050", color: "#F4F2EC" };
+}
+
 /* ---------- buyer ---------- */
 function BuyerPanel({ products, onAdd, loaded }) {
-  const [cat, setCat] = useState("All");
-  const shown = cat === "All" ? products : products.filter((p) => p.category === cat);
+  const [itemType, setItemType] = useState("All");
+  const [condition, setCondition] = useState("All");
+
+  const shown = products.filter(
+    (p) =>
+      (itemType === "All" || p.itemType === itemType) &&
+      (condition === "All" || p.condition === condition)
+  );
+
   return (
     <div>
-      <div className="flex gap-2 flex-wrap mb-6">
-        {CATS.map((c) => (
-          <button
-            key={c}
-            onClick={() => setCat(c)}
-            className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
-            style={{
-              background: cat === c ? "#FF4425" : "#141827",
-              color: cat === c ? "#0A0D18" : "#9AA1B4",
-              border: "1px solid #1C2136",
-            }}
-          >
-            {c}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-4 mb-6">
+        <div>
+          <div className="text-xs mb-1.5" style={{ color: "#7A8194" }}>Type</div>
+          <TabStrip
+            tabs={[["All", "All"], ...ITEM_TYPES.map((c) => [c, c])]}
+            active={itemType}
+            onChange={setItemType}
+          />
+        </div>
+        <div>
+          <div className="text-xs mb-1.5" style={{ color: "#7A8194" }}>Condition</div>
+          <TabStrip
+            tabs={[["All", "All"], ...CONDITIONS.map((c) => [c, c])]}
+            active={condition}
+            onChange={setCondition}
+          />
+        </div>
       </div>
       {!loaded ? (
         <p className="text-sm" style={{ color: "#7A8194" }}>Loading listings…</p>
       ) : shown.length === 0 ? (
-        <p className="text-sm" style={{ color: "#7A8194" }}>No listings in this category yet.</p>
+        <p className="text-sm" style={{ color: "#7A8194" }}>No listings match these filters yet.</p>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {shown.map((p, i) => (
@@ -821,8 +1022,14 @@ function BuyerPanel({ products, onAdd, loaded }) {
                     <div className="font-semibold text-sm">{p.name}</div>
                     <div className="text-xs" style={{ color: "#7A8194" }}>{p.sellerName}</div>
                   </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#00E6C31A", color: "#00E6C3" }}>{p.category}</span>
+                  <div className="flex flex-col gap-1 items-end">
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#00E6C31A", color: "#00E6C3" }}>{p.itemType}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#7A81941A", color: "#9AA1B4" }}>{p.condition}</span>
+                  </div>
                 </div>
+                {p.itemType === "Beyblade" && p.beybladeCategory && (
+                  <span className="text-xs" style={{ color: "#7A8194" }}>{p.beybladeCategory} type</span>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="disp font-bold text-lg" style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{p.price}</span>
                   <span className="text-xs" style={{ color: "#7A8194" }}>{p.stock} in stock</span>
@@ -844,93 +1051,220 @@ function BuyerPanel({ products, onAdd, loaded }) {
 }
 
 /* ---------- seller ---------- */
-function SellerPanel({ seller, products, onCreate }) {
-  const mine = products.filter((p) => p.sellerId === seller?.uid);
-  const [form, setForm] = useState({ name: "", price: "", category: "Attack", stock: "" });
+function SellerPanel({ seller, profile, products, orders, onCreate, onSavePaymentInfo, onMarkPaid }) {
+  const [tab, setTab] = useState("listings");
+  const [form, setForm] = useState({
+    name: "",
+    price: "",
+    stock: "",
+    itemType: "Beyblade",
+    condition: "NIB",
+    beybladeCategory: "Attack",
+  });
+  const [payForm, setPayForm] = useState({ upiId: "", paymentContact: "" });
+
+  useEffect(() => {
+    if (profile) {
+      setPayForm({ upiId: profile.upiId || "", paymentContact: profile.paymentContact || "" });
+    }
+  }, [profile]);
 
   const submit = (e) => {
     e.preventDefault();
     if (!seller || !form.name || !form.price) return;
     onCreate({
-      id: "p" + Date.now(),
       name: form.name,
       price: Number(form.price),
-      category: form.category,
       stock: Number(form.stock) || 1,
+      itemType: form.itemType,
+      condition: form.condition,
+      beybladeCategory: form.itemType === "Beyblade" ? form.beybladeCategory : null,
       sellerId: seller.uid,
       sellerName: seller.name,
-      status: "pending",
     });
-    setForm({ name: "", price: "", category: "Attack", stock: "" });
+    setForm({ name: "", price: "", stock: "", itemType: "Beyblade", condition: "NIB", beybladeCategory: "Attack" });
   };
 
   return (
-    <div className="grid md:grid-cols-2 gap-8">
-      <div>
-        <h3 className="font-semibold mb-4">List a new part</h3>
-        <p className="text-xs mb-3" style={{ color: "#7A8194" }}>
-          Listing as <span style={{ color: "#00E6C3" }}>{seller?.name}</span>.
-        </p>
-        <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-          <input
-            placeholder="Part name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-            style={{ background: "#0A0D18", border: "1px solid #2A3050", color: "#F4F2EC" }}
-          />
-          <div className="flex gap-3">
-            <input
-              placeholder="Price ₹"
-              type="number"
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-              style={{ background: "#0A0D18", border: "1px solid #2A3050", color: "#F4F2EC" }}
-            />
-            <input
-              placeholder="Stock"
-              type="number"
-              value={form.stock}
-              onChange={(e) => setForm({ ...form, stock: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-              style={{ background: "#0A0D18", border: "1px solid #2A3050", color: "#F4F2EC" }}
-            />
-          </div>
-          <select
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-            style={{ background: "#0A0D18", border: "1px solid #2A3050", color: "#F4F2EC" }}
-          >
-            {CATS.filter((c) => c !== "All").map((c) => <option key={c}>{c}</option>)}
-          </select>
-          <button type="submit" className="tap w-full py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
-            Submit for approval
-          </button>
-        </form>
-      </div>
-      <div>
-        <h3 className="font-semibold mb-4">My listings</h3>
-        <div className="space-y-2">
-          {mine.length === 0 && <p className="text-sm" style={{ color: "#7A8194" }}>No listings yet.</p>}
-          {mine.map((p) => (
-            <div key={p.id} className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-              <div>
-                <div className="text-sm font-medium">{p.name}</div>
-                <div className="text-xs" style={{ color: "#7A8194" }}>₹{p.price} · {p.category}</div>
+    <div>
+      <TabStrip
+        tabs={[
+          ["listings", "Listings"],
+          ["sales", "My Sales"],
+          ["payment", "Payment Info"],
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
+      {tab === "listings" && (
+        <div className="grid md:grid-cols-2 gap-8">
+          <div>
+            <h3 className="font-semibold mb-4">List a new item</h3>
+            <p className="text-xs mb-3" style={{ color: "#7A8194" }}>
+              Listing as <span style={{ color: "#00E6C3" }}>{seller?.name}</span>.
+            </p>
+            <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+              <input
+                placeholder="Item name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={fieldStyle()}
+              />
+              <div className="flex gap-3">
+                <input
+                  placeholder="Price ₹"
+                  type="number"
+                  value={form.price}
+                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={fieldStyle()}
+                />
+                <input
+                  placeholder="Stock"
+                  type="number"
+                  value={form.stock}
+                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={fieldStyle()}
+                />
               </div>
-              <StatusBadge status={p.status} />
+              <select
+                value={form.itemType}
+                onChange={(e) => setForm({ ...form, itemType: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={fieldStyle()}
+              >
+                {ITEM_TYPES.map((c) => <option key={c}>{c}</option>)}
+              </select>
+              <select
+                value={form.condition}
+                onChange={(e) => setForm({ ...form, condition: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={fieldStyle()}
+              >
+                {CONDITIONS.map((c) => <option key={c}>{c}</option>)}
+              </select>
+              {form.itemType === "Beyblade" && (
+                <select
+                  value={form.beybladeCategory}
+                  onChange={(e) => setForm({ ...form, beybladeCategory: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={fieldStyle()}
+                >
+                  {BEYBLADE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                </select>
+              )}
+              <button type="submit" className="tap w-full py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
+                Submit for approval
+              </button>
+            </form>
+          </div>
+          <div>
+            <h3 className="font-semibold mb-4">My listings</h3>
+            <div className="space-y-2">
+              {products.length === 0 && <p className="text-sm" style={{ color: "#7A8194" }}>No listings yet.</p>}
+              {products.map((p) => (
+                <div key={p.id} className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+                  <div>
+                    <div className="text-sm font-medium">{p.name}</div>
+                    <div className="text-xs" style={{ color: "#7A8194" }}>₹{p.price} · {p.itemType} · {p.condition}</div>
+                  </div>
+                  <StatusBadge status={p.status} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === "sales" && (
+        <div className="space-y-2 max-w-xl">
+          {orders.length === 0 && <p className="text-sm" style={{ color: "#7A8194" }}>No sales yet.</p>}
+          {orders.map((o) => (
+            <div key={o.id} className="p-4 rounded-xl flex items-center justify-between flex-wrap gap-2" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+              <div>
+                <div className="text-sm font-medium">{o.buyerName}</div>
+                <div className="text-xs" style={{ color: "#7A8194" }}>{o.items.length} item(s) · ₹{o.total}</div>
+                <OrderStatusBadge status={o.status} />
+              </div>
+              {o.status === "pending_payment" && (
+                <button
+                  onClick={() => onMarkPaid(o.id)}
+                  className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
+                  style={{ background: "#00E6C3", color: "#0A0D18" }}
+                >
+                  Mark as paid
+                </button>
+              )}
             </div>
           ))}
         </div>
-      </div>
+      )}
+
+      {tab === "payment" && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSavePaymentInfo(payForm);
+          }}
+          className="space-y-3 p-5 rounded-2xl max-w-sm"
+          style={{ background: "#141827", border: "1px solid #1C2136" }}
+        >
+          <p className="text-xs mb-1" style={{ color: "#7A8194" }}>
+            Shown to buyers at checkout so they can pay you directly.
+          </p>
+          <input
+            placeholder="UPI ID"
+            value={payForm.upiId}
+            onChange={(e) => setPayForm({ ...payForm, upiId: e.target.value })}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle()}
+          />
+          <input
+            placeholder="Other contact (phone/WhatsApp, optional)"
+            value={payForm.paymentContact}
+            onChange={(e) => setPayForm({ ...payForm, paymentContact: e.target.value })}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle()}
+          />
+          <button type="submit" className="tap w-full py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
+            Save
+          </button>
+        </form>
+      )}
     </div>
   );
 }
 
 /* ---------- admin ---------- */
-function AdminPanel({ products, onDecide }) {
+function AdminPanel({ products, onDecide, events, leaderboard, rulebookText, fireToast }) {
+  const [tab, setTab] = useState("listings");
+
+  return (
+    <div>
+      <TabStrip
+        tabs={[
+          ["listings", "Listings"],
+          ["roles", "Roles"],
+          ["events", "Events"],
+          ["leaderboard", "Leaderboard"],
+          ["rulebook", "Rulebook"],
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+      {tab === "listings" && <AdminListings products={products} onDecide={onDecide} />}
+      {tab === "roles" && <AdminRoles fireToast={fireToast} />}
+      {tab === "events" && <AdminEvents events={events} fireToast={fireToast} />}
+      {tab === "leaderboard" && <AdminLeaderboard rows={leaderboard} fireToast={fireToast} />}
+      {tab === "rulebook" && <AdminRulebook text={rulebookText} fireToast={fireToast} />}
+    </div>
+  );
+}
+
+function AdminListings({ products, onDecide }) {
   const pending = products.filter((p) => p.status === "pending");
   const stats = {
     total: products.length,
@@ -954,7 +1288,7 @@ function AdminPanel({ products, onDecide }) {
           <div key={p.id} className="flex items-center justify-between px-4 py-3 rounded-xl flex-wrap gap-2" style={{ background: "#141827", border: "1px solid #1C2136" }}>
             <div>
               <div className="text-sm font-medium">{p.name}</div>
-              <div className="text-xs" style={{ color: "#7A8194" }}>{p.sellerName} · ₹{p.price} · {p.category}</div>
+              <div className="text-xs" style={{ color: "#7A8194" }}>{p.sellerName} · ₹{p.price} · {p.itemType} · {p.condition}</div>
             </div>
             <div className="flex gap-2">
               <button onClick={() => onDecide(p.id, "approved")} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>Approve</button>
@@ -963,6 +1297,231 @@ function AdminPanel({ products, onDecide }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function AdminRoles({ fireToast }) {
+  const [email, setEmail] = useState("");
+  const [found, setFound] = useState(undefined); // undefined = not searched, null = not found
+  const [busy, setBusy] = useState(false);
+
+  const search = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setBusy(true);
+    try {
+      const u = await findUserByEmail(email);
+      setFound(u);
+      if (!u) fireToast("No account with that email yet — they need to sign in once first");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const assign = async (role) => {
+    if (!found) return;
+    setBusy(true);
+    try {
+      await setUserRole(found.uid, role);
+      setFound({ ...found, role });
+      fireToast(`${found.name} is now ${role}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md">
+      <form onSubmit={search} className="flex gap-2 mb-5">
+        <input
+          placeholder="Look up by email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+          style={fieldStyle()}
+        />
+        <button disabled={busy} type="submit" className="tap px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
+          Search
+        </button>
+      </form>
+      {found && (
+        <div className="p-4 rounded-xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+          <div className="text-sm font-medium">{found.name}</div>
+          <div className="text-xs mb-3" style={{ color: "#7A8194" }}>{found.email} · currently <span style={{ color: "#00E6C3" }}>{found.role}</span></div>
+          <div className="flex gap-2 flex-wrap">
+            {["user", "seller", "admin"].map((r) => (
+              <button
+                key={r}
+                disabled={busy || found.role === r}
+                onClick={() => assign(r)}
+                className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
+                style={{
+                  background: found.role === r ? "#2A3050" : "#00E6C3",
+                  color: found.role === r ? "#7A8194" : "#0A0D18",
+                }}
+              >
+                Make {r}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminEvents({ events, fireToast }) {
+  const empty = { name: "", date: "", venue: "", format: "", status: "upcoming", bracketUrl: "", accent: "#FF4425" };
+  const [form, setForm] = useState(empty);
+  const [editingId, setEditingId] = useState(null);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.name) return;
+    if (editingId) {
+      await updateEvent(editingId, form);
+      fireToast("Event updated");
+    } else {
+      await createEvent(form);
+      fireToast("Event created");
+    }
+    setForm(empty);
+    setEditingId(null);
+  };
+
+  return (
+    <div className="grid md:grid-cols-2 gap-8">
+      <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+        <h3 className="font-semibold mb-1">{editingId ? "Edit event" : "New event"}</h3>
+        <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+        <input placeholder="Date (e.g. 12 Jan 2026)" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+        <input placeholder="Venue" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+        <input placeholder="Format (e.g. Double Elimination · 27 Bladers)" value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+        <input placeholder="Bracket URL" value={form.bracketUrl} onChange={(e) => setForm({ ...form, bracketUrl: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+        <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
+          <option value="upcoming">Upcoming</option>
+          <option value="completed">Completed</option>
+        </select>
+        <div className="flex gap-2">
+          <button type="submit" className="tap flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
+            {editingId ? "Save changes" : "Create event"}
+          </button>
+          {editingId && (
+            <button type="button" onClick={() => { setForm(empty); setEditingId(null); }} className="tap px-4 rounded-full text-sm font-semibold" style={{ border: "1px solid #2A3050" }}>
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+      <div className="space-y-2">
+        {events.length === 0 && <p className="text-sm" style={{ color: "#7A8194" }}>No events yet.</p>}
+        {events.map((ev) => (
+          <div key={ev.id} className="p-3 rounded-xl flex items-center justify-between gap-2" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+            <div>
+              <div className="text-sm font-medium">{ev.name}</div>
+              <div className="text-xs" style={{ color: "#7A8194" }}>{ev.date} · {ev.status}</div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => { setForm({ ...empty, ...ev }); setEditingId(ev.id); }} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid #2A3050", color: "#F4F2EC" }}>Edit</button>
+              <button onClick={() => deleteEvent(ev.id)} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid #2A3050", color: "#FF6B5A" }}>Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminLeaderboard({ rows, fireToast }) {
+  const empty = { name: "", region: "", points: "", wins: "", losses: "" };
+  const [form, setForm] = useState(empty);
+  const [editingId, setEditingId] = useState(null);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.name) return;
+    const payload = {
+      name: form.name,
+      region: form.region,
+      points: Number(form.points) || 0,
+      wins: Number(form.wins) || 0,
+      losses: Number(form.losses) || 0,
+    };
+    if (editingId) {
+      await updateLeaderboardEntry(editingId, payload);
+      fireToast("Standing updated");
+    } else {
+      await createLeaderboardEntry(payload);
+      fireToast("Standing added");
+    }
+    setForm(empty);
+    setEditingId(null);
+  };
+
+  return (
+    <div className="grid md:grid-cols-2 gap-8">
+      <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+        <h3 className="font-semibold mb-1">{editingId ? "Edit standing" : "Add standing"}</h3>
+        <input placeholder="Blader name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+        <input placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+        <div className="flex gap-3">
+          <input placeholder="Points" type="number" value={form.points} onChange={(e) => setForm({ ...form, points: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+          <input placeholder="Wins" type="number" value={form.wins} onChange={(e) => setForm({ ...form, wins: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+          <input placeholder="Losses" type="number" value={form.losses} onChange={(e) => setForm({ ...form, losses: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+        </div>
+        <div className="flex gap-2">
+          <button type="submit" className="tap flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
+            {editingId ? "Save changes" : "Add"}
+          </button>
+          {editingId && (
+            <button type="button" onClick={() => { setForm(empty); setEditingId(null); }} className="tap px-4 rounded-full text-sm font-semibold" style={{ border: "1px solid #2A3050" }}>
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+      <div className="space-y-2">
+        {rows.length === 0 && <p className="text-sm" style={{ color: "#7A8194" }}>No standings yet.</p>}
+        {rows.map((row) => (
+          <div key={row.id} className="p-3 rounded-xl flex items-center justify-between gap-2" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+            <div>
+              <div className="text-sm font-medium">{row.name}</div>
+              <div className="text-xs" style={{ color: "#7A8194" }}>{row.points} pts · {row.wins ?? 0}-{row.losses ?? 0}</div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => { setForm({ ...empty, ...row }); setEditingId(row.id); }} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid #2A3050", color: "#F4F2EC" }}>Edit</button>
+              <button onClick={() => deleteLeaderboardEntry(row.id)} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid #2A3050", color: "#FF6B5A" }}>Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminRulebook({ text, fireToast }) {
+  const [draft, setDraft] = useState(text);
+  useEffect(() => setDraft(text), [text]);
+
+  const save = async () => {
+    await setRulebook(draft, "admin");
+    fireToast("Rulebook published");
+  };
+
+  return (
+    <div className="max-w-2xl">
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={16}
+        placeholder="Write the rulebook here — plain text, line breaks are preserved."
+        className="w-full px-4 py-3 rounded-xl text-sm outline-none mb-3"
+        style={{ ...fieldStyle(), resize: "vertical", fontFamily: "'JetBrains Mono',monospace" }}
+      />
+      <button onClick={save} className="tap px-5 py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
+        Publish
+      </button>
     </div>
   );
 }
@@ -976,6 +1535,20 @@ function StatusBadge({ status }) {
   const [color, label] = map[status] || map.pending;
   return (
     <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: color + "1A", color }}>
+      {label}
+    </span>
+  );
+}
+
+function OrderStatusBadge({ status }) {
+  const map = {
+    pending_payment: ["#FFC240", "Awaiting payment"],
+    paid: ["#00E6C3", "Paid"],
+    cancelled: ["#FF4425", "Cancelled"],
+  };
+  const [color, label] = map[status] || map.pending_payment;
+  return (
+    <span className="text-xs font-semibold px-2 py-1 rounded-full inline-block mt-1" style={{ background: color + "1A", color }}>
       {label}
     </span>
   );

@@ -9,6 +9,7 @@ import {
 } from "firebase/auth";
 import { AuthContext } from "./context";
 import { auth, firebaseReady, googleProvider, isAdminEmail } from "../lib/firebase";
+import { listenUserProfile, upsertUserProfile } from "../lib/firestore";
 
 function toAppUser(fbUser) {
   if (!fbUser) return null;
@@ -30,20 +31,45 @@ export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(firebaseReady);
   const [role, setRole] = useState("buyer");
+  const [firestoreRole, setFirestoreRole] = useState(null);
 
   // While signUp() is applying a display name, the auth-state listener can
   // fire first with the name still unset — skip that intermediate event so
   // downstream effects (e.g. the "Signed in as ..." toast) see the final name.
   const pendingName = useRef(null);
+  // Tracks the current users/{uid} profile listener so it can be torn down
+  // when the signed-in user changes or signs out.
+  const profileUnsub = useRef(null);
 
   useEffect(() => {
     if (!firebaseReady) return;
-    return onAuthStateChanged(auth, (fbUser) => {
+    const unsubAuth = onAuthStateChanged(auth, (fbUser) => {
       if (fbUser && pendingName.current && !fbUser.displayName) return;
       setUser(toAppUser(fbUser));
       setLoading(false);
+
+      if (profileUnsub.current) {
+        profileUnsub.current();
+        profileUnsub.current = null;
+      }
+      if (fbUser) {
+        upsertUserProfile(fbUser).then(() => {
+          profileUnsub.current = listenUserProfile(fbUser.uid, (profile) => {
+            setFirestoreRole(profile?.role || "user");
+          });
+        });
+      } else {
+        setFirestoreRole(null);
+      }
     });
+    return () => {
+      unsubAuth();
+      if (profileUnsub.current) profileUnsub.current();
+    };
   }, []);
+
+  const isAdmin = isAdminEmail(user?.email) || firestoreRole === "admin";
+  const isSeller = firestoreRole === "seller" || isAdmin;
 
   const value = useMemo(
     () => ({
@@ -51,7 +77,9 @@ export default function AuthProvider({ children }) {
       loading,
       role,
       setRole,
-      isAdmin: isAdminEmail(user?.email),
+      firestoreRole,
+      isAdmin,
+      isSeller,
       async signUp(name, email, password) {
         pendingName.current = name || null;
         try {
@@ -73,7 +101,7 @@ export default function AuthProvider({ children }) {
         await signOut(auth);
       },
     }),
-    [user, loading, role]
+    [user, loading, role, firestoreRole, isAdmin, isSeller]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,0 +1,99 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Mirrors VITE_ADMIN_EMAILS — the bootstrap admin(s) who can nominate
+    // everyone else. Keep this list in sync with that env var.
+    function isBootstrapAdmin() {
+      return signedIn() &&
+        request.auth.token.email in ['bangalorebeybladeassociation@gmail.com'];
+    }
+
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin() ||
+        (signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          userDoc(request.auth.uid).role == 'admin');
+    }
+
+    function isSeller() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        userDoc(request.auth.uid).role == 'seller';
+    }
+
+    // ---------------- users ----------------
+    match /users/{uid} {
+      // A seller's name/UPI/contact is semi-public by nature of listing in
+      // the marketplace — buyers need to read it at checkout to pay them.
+      allow get: if signedIn() &&
+        (request.auth.uid == uid || isAdmin() || resource.data.role == 'seller');
+      allow list: if isAdmin();
+      allow create: if signedIn() && request.auth.uid == uid &&
+        request.resource.data.role == 'user';
+      allow update: if signedIn() && (
+        (request.auth.uid == uid &&
+          request.resource.data.role == resource.data.role) ||
+        isAdmin()
+      );
+      allow delete: if false;
+    }
+
+    // ---------------- public content, admin-managed ----------------
+    match /events/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /leaderboard/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /rulebook/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------------- products ----------------
+    match /products/{id} {
+      allow read: if resource.data.status == 'approved' ||
+        (signedIn() && (resource.data.sellerId == request.auth.uid || isAdmin()));
+      allow create: if signedIn() && (isSeller() || isAdmin()) &&
+        request.resource.data.sellerId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+      allow update: if signedIn() && (
+        (resource.data.sellerId == request.auth.uid &&
+          request.resource.data.sellerId == resource.data.sellerId &&
+          request.resource.data.status == resource.data.status) ||
+        isAdmin()
+      );
+      allow delete: if signedIn() && (resource.data.sellerId == request.auth.uid || isAdmin());
+    }
+
+    // ---------------- orders ----------------
+    match /orders/{id} {
+      allow read: if signedIn() && (
+        resource.data.buyerId == request.auth.uid ||
+        request.auth.uid in resource.data.sellerIds ||
+        isAdmin()
+      );
+      allow create: if signedIn() && request.resource.data.buyerId == request.auth.uid;
+      allow update: if signedIn() && (
+        resource.data.buyerId == request.auth.uid ||
+        request.auth.uid in resource.data.sellerIds ||
+        isAdmin()
+      ) &&
+        request.resource.data.items == resource.data.items &&
+        request.resource.data.total == resource.data.total;
+      allow delete: if false;
+    }
+  }
+}

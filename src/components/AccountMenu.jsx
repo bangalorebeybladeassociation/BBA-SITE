@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/context";
 import { goAuth } from "../lib/authRoute";
 
-export default function AccountMenu({ onSignedOut }) {
+export default function AccountMenu({ onSignedOut, onOpenOrders }) {
   const { user, signOutUser } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -59,6 +59,16 @@ export default function AccountMenu({ onSignedOut }) {
           className="absolute right-0 mt-2 rounded-xl overflow-hidden"
           style={{ background: "#141827", border: "1px solid #1C2136", minWidth: 160, zIndex: 50 }}
         >
+          <button
+            onClick={() => {
+              setOpen(false);
+              onOpenOrders?.();
+            }}
+            className="tap w-full text-left px-4 py-2.5 text-sm"
+            style={{ color: "#F4F2EC", borderBottom: "1px solid #1C2136" }}
+          >
+            My orders
+          </button>
           <button
             onClick={async () => {
               setOpen(false);

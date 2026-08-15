@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 /* ---------------------------------------------------------
    Config comes from Vite env vars (see .env.example) so no
@@ -21,6 +22,7 @@ export const firebaseReady = Boolean(firebaseConfig.apiKey && firebaseConfig.pro
 
 export const app = firebaseReady ? initializeApp(firebaseConfig) : null;
 export const auth = firebaseReady ? getAuth(app) : null;
+export const db = firebaseReady ? getFirestore(app) : null;
 export const googleProvider = new GoogleAuthProvider();
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "")
