@@ -30,8 +30,11 @@ service cloud.firestore {
     }
 
     function isBlocked() {
+      // blocked is only ever present once an admin has actually blocked
+      // someone — .get() with a default avoids a rules evaluation error
+      // (and a fail-closed deny) for the common case where it's unset.
       return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        userDoc(request.auth.uid).blocked == true;
+        userDoc(request.auth.uid).get('blocked', false) == true;
     }
 
     // ---------------- users ----------------
@@ -101,6 +104,22 @@ service cloud.firestore {
       ) &&
         request.resource.data.items == resource.data.items &&
         request.resource.data.total == resource.data.total;
+      allow delete: if false;
+    }
+
+    // ---------------- event registrations ----------------
+    match /registrations/{id} {
+      // Contains phone numbers/names — only the registrant themselves or
+      // an admin can read, never a public/other-user list.
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if signedIn() && !isBlocked() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.agreed == true &&
+        request.resource.data.status == 'pending';
+      // Only admin can change anything post-submission (status, e.g. to
+      // "confirmed" once the UPI payment is verified) — the registrant's
+      // own submitted details are immutable.
+      allow update: if isAdmin();
       allow delete: if false;
     }
   }

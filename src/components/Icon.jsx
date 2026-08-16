@@ -82,6 +82,57 @@ const ICON_PATHS = {
       <path d="M10 11v6M14 11v6" />
     </>
   ),
+  pin: (
+    <>
+      <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" />
+      <circle cx="12" cy="9.5" r="2.4" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="M9.5 14.5l5-5" />
+      <path d="M11 6.5l1-1a3.8 3.8 0 0 1 5.5 5.5l-1.5 1.5" />
+      <path d="M13 17.5l-1 1a3.8 3.8 0 0 1-5.5-5.5l1.5-1.5" />
+    </>
+  ),
+  format: (
+    <>
+      <path d="M4 6h16M4 12h10M4 18h13" />
+      <circle cx="19" cy="6" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="18" r="1.2" fill="currentColor" stroke="none" />
+    </>
+  ),
+  flag: (
+    <>
+      <path d="M5 3v18" />
+      <path d="M5 4h11l-2.2 3.5L16 11H5" />
+    </>
+  ),
+  phone: (
+    <>
+      <path d="M6.5 3.5h3l1.3 4.2-2 1.6a12 12 0 0 0 5.9 5.9l1.6-2 4.2 1.3v3a1.5 1.5 0 0 1-1.6 1.5A16.5 16.5 0 0 1 5 5.1a1.5 1.5 0 0 1 1.5-1.6z" />
+    </>
+  ),
+  blade: (
+    <>
+      <circle cx="12" cy="12" r="7.5" />
+      <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none" />
+      <path d="M12 4.5v2.2M12 17.3v2.2M19.5 12h-2.2M6.7 12H4.5M17.1 6.9l-1.6 1.6M8.5 15.5l-1.6 1.6M17.1 17.1l-1.6-1.6M8.5 8.5L6.9 6.9" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="9" y="9" width="11" height="11" rx="1.8" />
+      <path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5.5" />
+      <circle cx="12" cy="8" r="0.2" fill="currentColor" stroke="currentColor" strokeWidth="2.2" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 16 }) {

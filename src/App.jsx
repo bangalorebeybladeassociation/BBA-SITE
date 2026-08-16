@@ -34,6 +34,9 @@ import {
   listenMyOrders,
   listenSellerOrders,
   setOrderStatus,
+  createRegistration,
+  listenAllRegistrations,
+  setRegistrationStatus,
 } from "./lib/firestore";
 
 /* ---------------------------------------------------------
@@ -296,6 +299,18 @@ function useAllUsers(enabled) {
   return users;
 }
 
+function useAllRegistrations(enabled) {
+  const [registrations, setRegistrations] = useState([]);
+  useEffect(() => {
+    if (!enabled) {
+      setRegistrations([]);
+      return;
+    }
+    return listenAllRegistrations(setRegistrations);
+  }, [enabled]);
+  return registrations;
+}
+
 function useMyProfile(uid) {
   const [profile, setProfile] = useState(null);
   useEffect(() => {
@@ -356,6 +371,7 @@ export default function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState(null);
+  const [registerEvent, setRegisterEvent] = useState(null);
 
   const { user, loading: authLoading, isAdmin, isSeller, blockedNotice, clearBlockedNotice } = useAuth();
   const [route, setRoute] = useState(readAuthRoute);
@@ -370,6 +386,7 @@ export default function App() {
   const sellerProducts = useSellerProducts(isSeller ? user?.uid : null);
   const allProducts = useAllProducts(isAdmin);
   const allUsers = useAllUsers(isAdmin);
+  const allRegistrations = useAllRegistrations(isAdmin);
   const myOrders = useMyOrders(user?.uid);
   const sellerOrders = useSellerOrders(user?.uid, isSeller);
 
@@ -473,6 +490,15 @@ export default function App() {
     }
   };
 
+  const openRegistration = (event) => {
+    if (!user) {
+      fireToast("Sign in to register for this event");
+      goAuth("login");
+      return;
+    }
+    setRegisterEvent(event);
+  };
+
   return (
     <div
       style={{
@@ -493,6 +519,13 @@ export default function App() {
         .tap { transition: transform 200ms ${EASE}, opacity 150ms ${EASE}, filter 200ms ${EASE}; }
         .tap:active { transform: scale(0.96); opacity:0.85; }
         .lift { transition: transform 260ms ${EASE}, box-shadow 260ms ${EASE}, border-color 260ms ${EASE}; }
+        .field-input { transition: border-color 200ms ${EASE}, box-shadow 200ms ${EASE}, transform 150ms ${EASE}; }
+        .field-input:focus { outline: none; border-color: #00E6C3 !important; box-shadow: 0 0 0 3px rgba(0,230,195,0.16); }
+        .field-input:focus-within { border-color: #00E6C3 !important; box-shadow: 0 0 0 3px rgba(0,230,195,0.16); }
+        .swatch { transition: transform 180ms ${EASE}, box-shadow 180ms ${EASE}; }
+        .swatch:hover { transform: scale(1.15); }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; opacity: 0.7; }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
         .nav-link { position: relative; padding-bottom: 2px; }
         .nav-link::after {
           content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 2px;
@@ -559,8 +592,20 @@ export default function App() {
             rulebookText={rulebookText}
             fireToast={fireToast}
             users={allUsers}
+            registrations={allRegistrations}
+            onSetRegistrationStatus={async (id, status) => {
+              await setRegistrationStatus(id, status);
+              fireToast(status === "confirmed" ? "Registration confirmed" : "Registration updated");
+            }}
           />
         </DashboardPage>
+      ) : registerEvent ? (
+        <RegistrationPage
+          event={registerEvent}
+          user={user}
+          fireToast={fireToast}
+          onClose={() => setRegisterEvent(null)}
+        />
       ) : (
       <>
 
@@ -741,19 +786,31 @@ export default function App() {
                     >
                       {t.status === "upcoming" ? "Upcoming" : "Completed"}
                     </span>
+                    <AgeBadge ageCategories={t.ageCategories} />
                   </div>
-                  <p className="text-sm mt-1" style={{ color: "#9AA1B4" }}>{t.date} · {t.venue}</p>
+                  <p className="text-sm mt-1" style={{ color: "#9AA1B4" }}>{formatEventDate(t.date)} · {t.venue}</p>
                   <p className="text-sm" style={{ color: "#7A8194" }}>{t.format}</p>
                 </div>
-                <a
-                  href={t.bracketUrl || "https://challonge.com/"}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="tap px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap"
-                  style={{ border: "1px solid #2A3050" }}
-                >
-                  Bracket ↗
-                </a>
+                <div className="flex gap-2 shrink-0">
+                  {t.status === "upcoming" && (
+                    <button
+                      onClick={() => openRegistration(t)}
+                      className="tap px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap"
+                      style={{ background: "#FF4425", color: "#0A0D18" }}
+                    >
+                      Register
+                    </button>
+                  )}
+                  <a
+                    href={t.bracketUrl || "https://challonge.com/"}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="tap px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap"
+                    style={{ border: "1px solid #2A3050" }}
+                  >
+                    Bracket ↗
+                  </a>
+                </div>
               </div>
             </Reveal>
           ))}
@@ -1067,6 +1124,270 @@ function DashboardPage({ icon, title, subtitle, onBack, children }) {
   );
 }
 
+const REGISTRATION_UPI_ID = "sarkar.288@superyes";
+
+const REGISTRATION_TERMS = [
+  "All registrations are final and non-refundable.",
+  "If any non-participants (spectators or accompanying guests) are joining along with participants, please make the payment for everyone in a single transaction to help us track payments efficiently.",
+  "Beyblade is a skill-based game involving strategy, technique, and competitive play.",
+  "Younger members are welcome to participate in the 13+ category, provided they are comfortable competing against adult players and comply with the event rules.",
+  "By submitting this registration, you confirm that you have read, understood, and agree to abide by all BBA tournament rules, event guidelines, and the decisions of the organisers, which shall be final.",
+  "Participants and accompanying guests are expected to keep the venue clean, dispose of waste responsibly, and help maintain a safe and welcoming environment for everyone.",
+  "Participants are expected to treat the venue and its property with respect. Any damage to the venue, equipment, or property caused by a participant, whether intentional or due to negligence, will be the sole responsibility of that participant, and they agree to bear the full cost of repair or replacement.",
+  "Once the registration is confirmed, no refunds / cancellations / transfers will be permitted under any circumstances.",
+];
+
+function CopyUpiButton({ copied, onCopy }) {
+  return (
+    <button
+      type="button"
+      onClick={onCopy}
+      className="tap px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
+      style={{ border: "1px solid #2A3050", color: "#F4F2EC" }}
+    >
+      <Icon name="copy" size={13} /> {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+/* ---------- event registration — full in-app form matching BBA's
+   participant registration spec, payment handled as a manual UPI
+   handoff (same pattern as marketplace orders).                  */
+function RegistrationPage({ event, user, onClose, fireToast }) {
+  const [form, setForm] = useState({
+    participantName: "",
+    bladerName: "",
+    phone: "",
+    age: "",
+    hasProducts: "",
+    hasVisitor: "",
+    visitorNames: [""],
+    paymentAmount: "",
+    agreed: false,
+  });
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyUpi = () => {
+    navigator.clipboard?.writeText(REGISTRATION_UPI_ID);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.participantName || !form.bladerName || !form.phone || !form.age || !form.hasProducts || !form.hasVisitor) {
+      fireToast("Please fill in all required fields");
+      return;
+    }
+    const visitorNames = form.visitorNames.map((n) => n.trim()).filter(Boolean);
+    if (form.hasVisitor === "yes" && visitorNames.length === 0) {
+      fireToast("Please add at least one visitor's name");
+      return;
+    }
+    if (!form.agreed) {
+      fireToast("Please agree to the terms & conditions");
+      return;
+    }
+    setBusy(true);
+    try {
+      await createRegistration({
+        eventId: event.id,
+        eventName: event.name,
+        userId: user.uid,
+        userEmail: user.email,
+        participantName: form.participantName,
+        bladerName: form.bladerName,
+        phone: form.phone,
+        age: form.age,
+        hasProducts: form.hasProducts === "yes",
+        hasVisitor: form.hasVisitor === "yes",
+        visitorNames: form.hasVisitor === "yes" ? visitorNames : [],
+        paymentAmount: form.paymentAmount,
+        agreed: true,
+      });
+      setDone(true);
+    } catch (err) {
+      console.error("Registration submit failed", err);
+      fireToast("Couldn't submit — please try again");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (done) {
+    return (
+      <DashboardPage icon="events" title="You're registered!" subtitle={event.name} onBack={onClose}>
+        <div className="max-w-md p-6 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136", animation: `auth-in 380ms ${EASE}` }}>
+          <p className="text-sm mb-4" style={{ color: "#9AA1B4" }}>
+            Pay your entry fee via UPI, then an admin will confirm your spot.
+          </p>
+          <div className="p-4 rounded-xl mb-5" style={{ background: "#0A0D18", border: "1px solid #2A3050" }}>
+            <div className="text-xs mb-1" style={{ color: "#7A8194" }}>UPI ID</div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold" style={{ color: "#00E6C3" }}>{REGISTRATION_UPI_ID}</span>
+              <CopyUpiButton copied={copied} onCopy={copyUpi} />
+            </div>
+          </div>
+          <button onClick={onClose} className="tap w-full py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
+            Back to site
+          </button>
+        </div>
+      </DashboardPage>
+    );
+  }
+
+  return (
+    <DashboardPage icon="events" title="Register" subtitle={`${event.name} · ${formatEventDate(event.date)}`} onBack={onClose}>
+      <form onSubmit={submit} className="grid md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <IconField icon="user" label="Name of Participant *" required value={form.participantName} onChange={(e) => setForm({ ...form, participantName: e.target.value })} />
+          <IconField icon="blade" label="Blader Name *" required value={form.bladerName} onChange={(e) => setForm({ ...form, bladerName: e.target.value })} />
+          <IconField icon="phone" label="Phone Number *" type="tel" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+
+          <div>
+            <span className="block text-xs font-semibold mb-1.5" style={{ color: "#7A8194" }}>Select your age *</span>
+            <SegmentedToggle
+              options={[
+                { value: "9-12", label: "9–12" },
+                { value: "13-17", label: "13–17" },
+                { value: "18plus", label: "18+" },
+              ]}
+              value={form.age}
+              onChange={(v) => setForm({ ...form, age: v })}
+            />
+          </div>
+
+          <div>
+            <span className="block text-xs font-semibold mb-1.5" style={{ color: "#7A8194" }}>Do you have Beyblade X products? *</span>
+            <SegmentedToggle
+              options={[{ value: "yes", label: "Yes" }, { value: "no", label: "No" }]}
+              value={form.hasProducts}
+              onChange={(v) => setForm({ ...form, hasProducts: v })}
+            />
+          </div>
+
+          <div>
+            <span className="block text-xs font-semibold mb-1.5" style={{ color: "#7A8194" }}>Anyone coming as a visitor / attendee? *</span>
+            <SegmentedToggle
+              options={[{ value: "yes", label: "Yes" }, { value: "no", label: "No" }]}
+              value={form.hasVisitor}
+              onChange={(v) => setForm({ ...form, hasVisitor: v, visitorNames: v === "no" ? [""] : form.visitorNames })}
+            />
+          </div>
+
+          {form.hasVisitor === "yes" && (
+            <div style={{ animation: `auth-in 260ms ${EASE}` }}>
+              <span className="block text-xs font-semibold mb-1.5" style={{ color: "#7A8194" }}>Name(s) of Visitor / Attendee</span>
+              <div className="space-y-2">
+                {form.visitorNames.map((name, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div
+                      className="field-input flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg"
+                      style={{ background: "#0A0D18", border: "1px solid #2A3050" }}
+                    >
+                      <span style={{ color: "#5A6178" }}><Icon name="user" size={15} /></span>
+                      <input
+                        value={name}
+                        placeholder={`Visitor ${i + 1} name`}
+                        onChange={(e) => {
+                          const next = [...form.visitorNames];
+                          next[i] = e.target.value;
+                          setForm({ ...form, visitorNames: next });
+                        }}
+                        className="flex-1 min-w-0 bg-transparent text-sm outline-none"
+                        style={{ color: "#F4F2EC" }}
+                      />
+                    </div>
+                    {form.visitorNames.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, visitorNames: form.visitorNames.filter((_, idx) => idx !== i) })}
+                        className="tap shrink-0 flex items-center justify-center rounded-full"
+                        style={{ width: 32, height: 32, border: "1px solid #2A3050", color: "#FF6B5A" }}
+                        aria-label="Remove visitor"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, visitorNames: [...form.visitorNames, ""] })}
+                className="tap mt-2 text-xs font-semibold"
+                style={{ color: "#00E6C3" }}
+              >
+                + Add another visitor
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-4 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+            <div className="flex items-center gap-2 mb-2" style={{ color: "#FFC240" }}>
+              <Icon name="info" size={15} />
+              <span className="text-sm font-semibold">Payment info</span>
+            </div>
+            <p className="text-xs" style={{ color: "#9AA1B4" }}>
+              Entry fee for Participants: <span style={{ color: "#F4F2EC" }}>₹550 per person</span>
+            </p>
+            <p className="text-xs mb-3" style={{ color: "#9AA1B4" }}>
+              Non-participants: <span style={{ color: "#F4F2EC" }}>₹150 per person</span>
+            </p>
+            <div className="p-3 rounded-xl mb-3" style={{ background: "#0A0D18", border: "1px solid #2A3050" }}>
+              <div className="text-xs mb-1" style={{ color: "#7A8194" }}>Pay via UPI</div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold" style={{ color: "#00E6C3" }}>{REGISTRATION_UPI_ID}</span>
+                <CopyUpiButton copied={copied} onCopy={copyUpi} />
+              </div>
+            </div>
+            <IconField
+              icon="format"
+              label="Payment amount made (₹)"
+              type="number"
+              value={form.paymentAmount}
+              onChange={(e) => setForm({ ...form, paymentAmount: e.target.value })}
+            />
+          </div>
+
+          <div className="p-4 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+            <h4 className="text-sm font-semibold mb-2">Registration Terms &amp; Conditions</h4>
+            <ul className="space-y-2 text-xs pr-1" style={{ color: "#9AA1B4", maxHeight: 220, overflowY: "auto" }}>
+              {REGISTRATION_TERMS.map((t, i) => (
+                <li key={i} className="flex gap-2">
+                  <span style={{ color: "#7A8194" }}>•</span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="p-4 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+            <Checkbox
+              label="I have read and agree to the above Terms & Conditions and accept full responsibility for complying with BBA throughout the event. *"
+              checked={form.agreed}
+              onChange={(v) => setForm({ ...form, agreed: v })}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={busy}
+            className="tap w-full py-3 rounded-full text-sm font-semibold"
+            style={{ background: "#FF4425", color: "#0A0D18", opacity: busy ? 0.6 : 1 }}
+          >
+            {busy ? "Submitting…" : "Submit registration"}
+          </button>
+        </div>
+      </form>
+    </DashboardPage>
+  );
+}
+
 /* ---------- small tab strip, reused across admin/seller sub-views ---------- */
 function TabStrip({ tabs, active, onChange }) {
   return (
@@ -1355,7 +1676,7 @@ function SellerPanel({ seller, profile, products, orders, onCreate, onSavePaymen
 }
 
 /* ---------- admin ---------- */
-function AdminPanel({ products, onDecide, events, leaderboard, rulebookText, fireToast, users }) {
+function AdminPanel({ products, onDecide, events, leaderboard, rulebookText, fireToast, users, registrations, onSetRegistrationStatus }) {
   const [tab, setTab] = useState("listings");
 
   return (
@@ -1365,6 +1686,7 @@ function AdminPanel({ products, onDecide, events, leaderboard, rulebookText, fir
           ["listings", "Listings"],
           ["roles", "Roles"],
           ["events", "Events"],
+          ["registrations", "Registrations"],
           ["leaderboard", "Leaderboard"],
           ["rulebook", "Rulebook"],
         ]}
@@ -1374,6 +1696,9 @@ function AdminPanel({ products, onDecide, events, leaderboard, rulebookText, fir
       {tab === "listings" && <AdminListings products={products} onDecide={onDecide} />}
       {tab === "roles" && <AdminRoles fireToast={fireToast} users={users} />}
       {tab === "events" && <AdminEvents events={events} fireToast={fireToast} />}
+      {tab === "registrations" && (
+        <AdminRegistrations registrations={registrations} onSetStatus={onSetRegistrationStatus} />
+      )}
       {tab === "leaderboard" && <AdminLeaderboard rows={leaderboard} fireToast={fireToast} />}
       {tab === "rulebook" && <AdminRulebook text={rulebookText} fireToast={fireToast} />}
     </div>
@@ -1421,6 +1746,17 @@ function formatLastLogin(ts) {
   if (!ts) return "Never";
   const date = typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
   return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+/* Events store their date as a plain YYYY-MM-DD string (native <input
+   type="date">) — format it for display. Falls back to the raw string
+   for any legacy event saved before the calendar picker existed, since
+   those won't parse as a clean ISO date. */
+function formatEventDate(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
 function AdminRoles({ fireToast, users }) {
@@ -1596,8 +1932,277 @@ function AdminRoles({ fireToast, users }) {
   );
 }
 
+/* ---------- icon field — labeled input with a leading icon that
+   glows the whole pill on focus (via .field-input:focus-within) ---------- */
+function IconField({ icon, label, ...props }) {
+  return (
+    <label className="block text-left">
+      <span className="block text-xs font-semibold mb-1.5" style={{ color: "#7A8194" }}>{label}</span>
+      <div
+        className="field-input flex items-center gap-2 px-3 py-2.5 rounded-lg"
+        style={{ background: "#0A0D18", border: "1px solid #2A3050" }}
+      >
+        <span style={{ color: "#5A6178" }}><Icon name={icon} size={15} /></span>
+        <input
+          {...props}
+          className="flex-1 min-w-0 bg-transparent text-sm outline-none"
+          style={{ color: "#F4F2EC" }}
+        />
+      </div>
+    </label>
+  );
+}
+
+/* ---------- sliding segmented toggle ---------- */
+function SegmentedToggle({ options, value, onChange }) {
+  const idx = options.findIndex((o) => o.value === value);
+  const pct = 100 / options.length;
+  return (
+    <div className="relative inline-flex p-1 rounded-full" style={{ background: "#0A0D18", border: "1px solid #2A3050" }}>
+      {idx >= 0 && (
+        <div
+          aria-hidden="true"
+          className="absolute top-1 bottom-1 rounded-full"
+          style={{
+            left: `calc(${idx * pct}% + 4px)`,
+            width: `calc(${pct}% - 8px)`,
+            background: "#00E6C3",
+            transition: `left 280ms ${EASE}`,
+          }}
+        />
+      )}
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className="tap relative px-4 py-1.5 rounded-full text-xs font-semibold"
+          style={{ color: value === o.value ? "#0A0D18" : "#9AA1B4", transition: `color 220ms ${EASE}`, zIndex: 1 }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const ACCENT_SWATCHES = ["#FF4425", "#00E6C3", "#FFC240", "#9B7EF0", "#FF6FA5"];
+
+/* ---------- custom checkbox — filled square, checkmark pops in ---------- */
+function Checkbox({ label, checked, onChange }) {
+  return (
+    <button type="button" onClick={() => onChange(!checked)} className="tap flex items-start gap-2 text-left">
+      <span
+        className="flex items-center justify-center rounded shrink-0"
+        style={{
+          width: 20,
+          height: 20,
+          marginTop: 1,
+          background: checked ? "#00E6C3" : "transparent",
+          border: checked ? "none" : "1px solid #2A3050",
+          transition: `background 180ms ${EASE}, border-color 180ms ${EASE}`,
+        }}
+      >
+        {checked && (
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#0A0D18"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ animation: `pop-in 200ms ${EASE}` }}
+          >
+            <path d="M4 12l5 5L20 6" />
+          </svg>
+        )}
+      </span>
+      <span className="text-sm" style={{ color: "#F4F2EC" }}>{label}</span>
+    </button>
+  );
+}
+
+function toggleArrayValue(arr, value, include) {
+  return include ? [...arr, value] : arr.filter((v) => v !== value);
+}
+
+/* ---------- live preview — mirrors the real timeline card so admins
+   see exactly what they're publishing as they type ---------- */
+function AgeBadge({ ageCategories }) {
+  if (!ageCategories || ageCategories.length === 0) return null;
+  return (
+    <>
+      {ageCategories.map((c) => (
+        <span
+          key={c}
+          className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
+          style={{ background: "#FFC2401A", color: "#FFC240" }}
+        >
+          {c === "under13" ? "Under 13" : "13+"}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function EventPreviewCard({ form }) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        <span
+          className="rounded-full"
+          style={{ width: 6, height: 6, background: "#00E6C3", animation: "glow-pulse 1.8s ease-in-out infinite" }}
+        />
+        <span className="text-xs font-semibold" style={{ color: "#7A8194", letterSpacing: 0.5 }}>LIVE PREVIEW</span>
+      </div>
+      <div className="p-4 rounded-2xl flex items-center gap-3" style={{ background: "#0A0D18", border: "1px solid #2A3050" }}>
+        <span className="rounded-full shrink-0" style={{ width: 12, height: 12, background: form.accent || "#FF4425" }} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="disp font-semibold text-base truncate">{form.name || "Event name"}</span>
+            <span
+              className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
+              style={{
+                background: form.status === "upcoming" ? "#00E6C31A" : "#7A81941A",
+                color: form.status === "upcoming" ? "#00E6C3" : "#9AA1B4",
+              }}
+            >
+              {form.status === "upcoming" ? "Upcoming" : "Completed"}
+            </span>
+            <AgeBadge ageCategories={form.ageCategories} />
+          </div>
+          <div className="text-xs mt-1" style={{ color: "#9AA1B4" }}>{formatEventDate(form.date) || "Date"} · {form.venue || "Venue"}</div>
+          <div className="text-xs" style={{ color: "#7A8194" }}>{form.format || "Format"}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RegistrationStatusBadge({ status }) {
+  const map = {
+    pending: ["#FFC240", "Pending"],
+    confirmed: ["#00E6C3", "Confirmed"],
+  };
+  const [color, label] = map[status] || map.pending;
+  return (
+    <span className="text-xs font-semibold px-2 py-1 rounded-full whitespace-nowrap" style={{ background: color + "1A", color }}>
+      {label}
+    </span>
+  );
+}
+
+function AdminRegistrations({ registrations, onSetStatus }) {
+  const [filter, setFilter] = useState("");
+  const [busyId, setBusyId] = useState(null);
+
+  const ageLabel = (age) => (age === "9-12" ? "9–12" : age === "13-17" ? "13–17" : age === "18plus" ? "18+" : age || "—");
+
+  const q = filter.trim().toLowerCase();
+  const shown = registrations
+    .filter(
+      (r) =>
+        !q ||
+        r.participantName?.toLowerCase().includes(q) ||
+        r.bladerName?.toLowerCase().includes(q) ||
+        r.eventName?.toLowerCase().includes(q) ||
+        r.phone?.toLowerCase().includes(q)
+    )
+    .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+
+  const confirm = async (r) => {
+    setBusyId(r.id);
+    try {
+      await onSetStatus(r.id, "confirmed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div>
+      <input
+        placeholder="Filter by name, phone, or event"
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        className="w-full max-w-sm px-3 py-2 rounded-lg text-sm outline-none mb-5"
+        style={fieldStyle()}
+      />
+      {shown.length === 0 ? (
+        <p className="text-sm" style={{ color: "#7A8194" }}>
+          {registrations.length === 0 ? "No registrations yet." : "No matches."}
+        </p>
+      ) : (
+        <div className="rounded-2xl overflow-x-auto" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+          <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ color: "#7A8194", textAlign: "left" }}>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Event</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Participant</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Blader name</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Phone</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Age</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Products?</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Visitor</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Paid (₹)</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((r) => (
+                <tr key={r.id} style={{ borderTop: "1px solid #1C2136" }}>
+                  <td className="px-4 py-3 whitespace-nowrap">{r.eventName}</td>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{r.participantName}</td>
+                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#9AA1B4" }}>{r.bladerName}</td>
+                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#9AA1B4" }}>{r.phone}</td>
+                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#9AA1B4" }}>{ageLabel(r.age)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#9AA1B4" }}>{r.hasProducts ? "Yes" : "No"}</td>
+                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#9AA1B4" }}>
+                    {r.hasVisitor ? r.visitorNames?.join(", ") || "Yes" : "No"}
+                  </td>
+                  <td
+                    className="px-4 py-3 whitespace-nowrap"
+                    style={{ color: "#9AA1B4", fontFamily: "'JetBrains Mono',monospace" }}
+                  >
+                    {r.paymentAmount || "—"}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap"><RegistrationStatusBadge status={r.status} /></td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {r.status !== "confirmed" && (
+                      <button
+                        disabled={busyId === r.id}
+                        onClick={() => confirm(r)}
+                        className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
+                        style={{ background: "#00E6C3", color: "#0A0D18" }}
+                      >
+                        Mark confirmed
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminEvents({ events, fireToast }) {
-  const empty = { name: "", date: "", venue: "", format: "", status: "upcoming", bracketUrl: "", accent: "#FF4425" };
+  const empty = {
+    name: "",
+    date: "",
+    venue: "",
+    format: "",
+    status: "upcoming",
+    bracketUrl: "",
+    accent: "#FF4425",
+    ageCategories: [],
+  };
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState(null);
 
@@ -1617,35 +2222,90 @@ function AdminEvents({ events, fireToast }) {
 
   return (
     <div className="grid md:grid-cols-2 gap-8">
-      <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-        <h3 className="font-semibold mb-1">{editingId ? "Edit event" : "New event"}</h3>
-        <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-        <input placeholder="Date (e.g. 12 Jan 2026)" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-        <input placeholder="Venue" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-        <input placeholder="Format (e.g. Double Elimination · 27 Bladers)" value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-        <input placeholder="Bracket URL" value={form.bracketUrl} onChange={(e) => setForm({ ...form, bracketUrl: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-        <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
-          <option value="upcoming">Upcoming</option>
-          <option value="completed">Completed</option>
-        </select>
-        <div className="flex gap-2">
-          <button type="submit" className="tap flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
-            {editingId ? "Save changes" : "Create event"}
-          </button>
-          {editingId && (
-            <button type="button" onClick={() => { setForm(empty); setEditingId(null); }} className="tap px-4 rounded-full text-sm font-semibold" style={{ border: "1px solid #2A3050" }}>
-              Cancel
-            </button>
-          )}
+      <div>
+        <div className="mb-5">
+          <EventPreviewCard form={form} />
         </div>
-      </form>
+        <form onSubmit={submit} className="space-y-4 p-5 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+          <h3 className="font-semibold">{editingId ? "Edit event" : "New event"}</h3>
+
+          <IconField icon="events" label="Name" placeholder="e.g. Whitefield Winter Clash" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <IconField icon="events" label="Date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+          <IconField icon="pin" label="Venue" placeholder="e.g. Whitefield Community Hall" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} />
+          <IconField icon="format" label="Format" placeholder="e.g. Double Elimination · 27 Bladers" value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })} />
+          <IconField icon="link" label="Bracket URL" placeholder="https://challonge.com/…" value={form.bracketUrl} onChange={(e) => setForm({ ...form, bracketUrl: e.target.value })} />
+
+          <div>
+            <span className="block text-xs font-semibold mb-1.5" style={{ color: "#7A8194" }}>Status</span>
+            <SegmentedToggle
+              options={[{ value: "upcoming", label: "Upcoming" }, { value: "completed", label: "Completed" }]}
+              value={form.status}
+              onChange={(v) => setForm({ ...form, status: v })}
+            />
+          </div>
+
+          <div>
+            <span className="block text-xs font-semibold mb-1.5" style={{ color: "#7A8194" }}>Age category</span>
+            <div className="flex gap-5">
+              <Checkbox
+                label="Under 13"
+                checked={form.ageCategories.includes("under13")}
+                onChange={(v) => setForm({ ...form, ageCategories: toggleArrayValue(form.ageCategories, "under13", v) })}
+              />
+              <Checkbox
+                label="13+"
+                checked={form.ageCategories.includes("13plus")}
+                onChange={(v) => setForm({ ...form, ageCategories: toggleArrayValue(form.ageCategories, "13plus", v) })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <span className="block text-xs font-semibold mb-1.5" style={{ color: "#7A8194" }}>Accent</span>
+            <div className="flex gap-2.5">
+              {ACCENT_SWATCHES.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setForm({ ...form, accent: c })}
+                  className="swatch tap rounded-full"
+                  style={{
+                    width: 26,
+                    height: 26,
+                    background: c,
+                    boxShadow: form.accent === c ? `0 0 0 2px #141827, 0 0 0 4px ${c}` : "none",
+                  }}
+                  aria-label={`Accent ${c}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button type="submit" className="tap flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
+              {editingId ? "Save changes" : "Create event"}
+            </button>
+            {editingId && (
+              <button type="button" onClick={() => { setForm(empty); setEditingId(null); }} className="tap px-4 rounded-full text-sm font-semibold" style={{ border: "1px solid #2A3050" }}>
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
       <div className="space-y-2">
         {events.length === 0 && <p className="text-sm" style={{ color: "#7A8194" }}>No events yet.</p>}
         {events.map((ev) => (
-          <div key={ev.id} className="p-3 rounded-xl flex items-center justify-between gap-2" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-            <div>
-              <div className="text-sm font-medium">{ev.name}</div>
-              <div className="text-xs" style={{ color: "#7A8194" }}>{ev.date} · {ev.status}</div>
+          <div key={ev.id} className="lift p-3 rounded-xl flex items-center justify-between gap-2" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="rounded-full shrink-0" style={{ width: 10, height: 10, background: ev.accent || "#FF4425" }} />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-medium truncate">{ev.name}</div>
+                  <AgeBadge ageCategories={ev.ageCategories} />
+                </div>
+                <div className="text-xs" style={{ color: "#7A8194" }}>{formatEventDate(ev.date)} · {ev.status}</div>
+              </div>
             </div>
             <div className="flex gap-2 shrink-0">
               <button onClick={() => { setForm({ ...empty, ...ev }); setEditingId(ev.id); }} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid #2A3050", color: "#F4F2EC" }}>Edit</button>

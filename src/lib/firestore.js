@@ -248,3 +248,27 @@ export function listenSellerOrders(uid, cb) {
 }
 export const setOrderStatus = (id, status) =>
   updateDoc(doc(db, "orders", id), { status, updatedAt: serverTimestamp() });
+
+// ---------------- event registrations ----------------
+export const createRegistration = (data) =>
+  addDoc(collection(db, "registrations"), {
+    ...data,
+    status: "pending",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+// admin-only: same "unfiltered list needs isAdmin()" rule as products/orders/users.
+export function listenAllRegistrations(cb) {
+  return onSnapshot(
+    collection(db, "registrations"),
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => {
+      console.error("listenAllRegistrations", err);
+      cb([]);
+    }
+  );
+}
+
+export const setRegistrationStatus = (id, status) =>
+  updateDoc(doc(db, "registrations", id), { status, updatedAt: serverTimestamp() });
