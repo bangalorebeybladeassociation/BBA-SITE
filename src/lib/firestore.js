@@ -137,6 +137,22 @@ export async function setRulebook(text, updatedBy) {
   await setDoc(doc(db, "rulebook", "content"), { text, updatedAt: serverTimestamp(), updatedBy });
 }
 
+// Instagram gallery — admin adds a post URL, embedded client-side via
+// Instagram's public /embed iframe. No token/API call involved at all.
+export function listenInstagramPosts(cb) {
+  return onSnapshot(
+    collection(db, "instagramPosts"),
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => {
+      console.error("listenInstagramPosts", err);
+      cb([]);
+    }
+  );
+}
+export const addInstagramPost = (url) =>
+  addDoc(collection(db, "instagramPosts"), { url, createdAt: serverTimestamp() });
+export const deleteInstagramPost = (id) => deleteDoc(doc(db, "instagramPosts", id));
+
 // ---------------- products ----------------
 export function listenApprovedProducts(cb) {
   const q = query(collection(db, "products"), where("status", "==", "approved"));

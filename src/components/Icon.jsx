@@ -12,10 +12,17 @@ const ICON_PATHS = {
       <path d="M3 9h18M8 2.5v4M16 2.5v4" />
     </>
   ),
-  videos: (
+  media: (
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M10 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none" />
+    </>
+  ),
+  gallery: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="8.5" cy="8.5" r="1.7" />
+      <path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.1 0L4 19" />
     </>
   ),
   leaderboard: (

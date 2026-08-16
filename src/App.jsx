@@ -19,6 +19,9 @@ import {
   deleteLeaderboardEntry,
   listenRulebook,
   setRulebook,
+  listenInstagramPosts,
+  addInstagramPost,
+  deleteInstagramPost,
   listenApprovedProducts,
   listenSellerProducts,
   listenAllProducts,
@@ -247,6 +250,23 @@ function useRulebookText() {
   return text;
 }
 
+function useInstagramPosts() {
+  const [posts, setPosts] = useState([]);
+  useEffect(() => {
+    if (!firebaseReady) return;
+    return listenInstagramPosts(setPosts);
+  }, []);
+  return posts;
+}
+
+// Extracts the shortcode from any Instagram post/reel URL and returns the
+// public no-auth embed iframe src for it, or null if it doesn't look like
+// a valid Instagram post URL.
+function instagramEmbedSrc(url) {
+  const match = url.match(/instagram\.com\/(p|reel)\/([^/?]+)/);
+  return match ? `https://www.instagram.com/${match[1]}/${match[2]}/embed` : null;
+}
+
 function useApprovedProducts() {
   const [products, setProducts] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -380,6 +400,7 @@ export default function App() {
   const events = useEvents();
   const leaderboard = useLeaderboardRows();
   const rulebookText = useRulebookText();
+  const instagramPosts = useInstagramPosts();
   const myProfile = useMyProfile(user?.uid);
 
   const [approvedProducts, productsLoaded] = useApprovedProducts();
@@ -597,6 +618,7 @@ export default function App() {
               await setRegistrationStatus(id, status);
               fireToast(status === "confirmed" ? "Registration confirmed" : "Registration updated");
             }}
+            instagramPosts={instagramPosts}
           />
         </DashboardPage>
       ) : registerEvent ? (
@@ -632,8 +654,8 @@ export default function App() {
           <a href="#events" className="tap nav-link hover:text-white flex items-center gap-1.5">
             <Icon name="events" /> Events
           </a>
-          <a href="#videos" className="tap nav-link hover:text-white flex items-center gap-1.5">
-            <Icon name="videos" /> Videos
+          <a href="#media" className="tap nav-link hover:text-white flex items-center gap-1.5">
+            <Icon name="media" /> Media
           </a>
           <a href="#leaderboard" className="tap nav-link hover:text-white flex items-center gap-1.5">
             <Icon name="leaderboard" /> Leaderboard
@@ -721,7 +743,7 @@ export default function App() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             ["#events", "Events", "Every event, past and upcoming, with live brackets"],
-            ["#videos", "Videos", "Match highlights and judge breakdowns"],
+            ["#media", "Media", "Match highlights and the Instagram feed"],
             ["#leaderboard", "Leaderboard", "Season 3 rankings across all events"],
             ["#market", "Shop", "Buy parts, or sell your own as an approved seller"],
           ].map(([href, title, desc]) => (
@@ -818,13 +840,17 @@ export default function App() {
         )}
       </section>
 
-      {/* VIDEOS */}
-      <section id="videos" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
+      {/* MEDIA */}
+      <section id="media" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
         <Reveal>
-          <h2 className="disp font-bold text-3xl mb-2">Promo & Match Footage</h2>
-          <p style={{ color: "#9AA1B4" }} className="mb-10">Highlights, finals, and judge breakdowns from the circuit.</p>
+          <h2 className="disp font-bold text-3xl mb-2">Media</h2>
+          <p style={{ color: "#9AA1B4" }} className="mb-10">Match highlights, judge breakdowns, and our Instagram feed.</p>
         </Reveal>
-        <div className="grid sm:grid-cols-2 gap-6">
+
+        <Reveal>
+          <h3 className="disp font-semibold text-xl mb-5">Promo & Match Footage</h3>
+        </Reveal>
+        <div className="grid sm:grid-cols-2 gap-6 mb-16">
           {VIDEOS.map((v, i) => (
             <Reveal key={v.id} delay={i * 70}>
               <button
@@ -851,6 +877,62 @@ export default function App() {
             </Reveal>
           ))}
         </div>
+
+        <Reveal>
+          <div className="flex items-center gap-2 mb-5 flex-wrap">
+            <Icon name="gallery" size={20} />
+            <h3 className="disp font-semibold text-xl">From Instagram</h3>
+            <a
+              href="https://www.instagram.com/bangalore_beyblade_association/"
+              target="_blank"
+              rel="noreferrer"
+              className="tap text-xs font-semibold ml-auto"
+              style={{ color: "#00E6C3" }}
+            >
+              @bangalore_beyblade_association ↗
+            </a>
+          </div>
+          {instagramPosts.length === 0 ? (
+            <div className="p-8 rounded-2xl text-center" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+              <p className="text-sm" style={{ color: "#7A8194" }}>
+                Instagram gallery coming soon — follow us at{" "}
+                <a
+                  href="https://www.instagram.com/bangalore_beyblade_association/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="tap font-semibold"
+                  style={{ color: "#00E6C3" }}
+                >
+                  @bangalore_beyblade_association
+                </a>
+                .
+              </p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {instagramPosts.map((post, i) => {
+                const src = instagramEmbedSrc(post.url);
+                if (!src) return null;
+                return (
+                  <Reveal key={post.id} delay={i * 60}>
+                    <div
+                      className="lift rounded-2xl overflow-hidden"
+                      style={{ height: 460, border: "1px solid #1C2136" }}
+                    >
+                      <iframe
+                        src={src}
+                        title={`Instagram post ${i + 1}`}
+                        loading="lazy"
+                        scrolling="no"
+                        style={{ width: "100%", height: 700, border: "none", marginTop: -1 }}
+                      />
+                    </div>
+                  </Reveal>
+                );
+              })}
+            </div>
+          )}
+        </Reveal>
       </section>
 
       {/* LEADERBOARD */}
@@ -1676,7 +1758,18 @@ function SellerPanel({ seller, profile, products, orders, onCreate, onSavePaymen
 }
 
 /* ---------- admin ---------- */
-function AdminPanel({ products, onDecide, events, leaderboard, rulebookText, fireToast, users, registrations, onSetRegistrationStatus }) {
+function AdminPanel({
+  products,
+  onDecide,
+  events,
+  leaderboard,
+  rulebookText,
+  fireToast,
+  users,
+  registrations,
+  onSetRegistrationStatus,
+  instagramPosts,
+}) {
   const [tab, setTab] = useState("listings");
 
   return (
@@ -1689,6 +1782,7 @@ function AdminPanel({ products, onDecide, events, leaderboard, rulebookText, fir
           ["registrations", "Registrations"],
           ["leaderboard", "Leaderboard"],
           ["rulebook", "Rulebook"],
+          ["instagram", "Instagram"],
         ]}
         active={tab}
         onChange={setTab}
@@ -1701,6 +1795,7 @@ function AdminPanel({ products, onDecide, events, leaderboard, rulebookText, fir
       )}
       {tab === "leaderboard" && <AdminLeaderboard rows={leaderboard} fireToast={fireToast} />}
       {tab === "rulebook" && <AdminRulebook text={rulebookText} fireToast={fireToast} />}
+      {tab === "instagram" && <AdminInstagram posts={instagramPosts} fireToast={fireToast} />}
     </div>
   );
 }
@@ -2407,6 +2502,117 @@ function AdminRulebook({ text, fireToast }) {
       <button onClick={save} className="tap px-5 py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
         Publish
       </button>
+    </div>
+  );
+}
+
+function AdminInstagram({ posts, fireToast }) {
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const preview = instagramEmbedSrc(url);
+
+  const add = async (e) => {
+    e.preventDefault();
+    if (!preview) {
+      fireToast("That doesn't look like an Instagram post URL");
+      return;
+    }
+    setBusy(true);
+    try {
+      await addInstagramPost(url.trim());
+      setUrl("");
+      fireToast("Added to the Instagram gallery");
+    } catch (err) {
+      console.error("addInstagramPost failed", err);
+      fireToast("Couldn't add that post — please try again");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (post) => {
+    try {
+      await deleteInstagramPost(post.id);
+      fireToast("Removed from the gallery");
+    } catch (err) {
+      console.error("deleteInstagramPost failed", err);
+      fireToast("Couldn't remove that post — please try again");
+    }
+  };
+
+  return (
+    <div className="max-w-2xl">
+      <p className="text-sm mb-4" style={{ color: "#9AA1B4" }}>
+        Paste a link to any public post on{" "}
+        <a
+          href="https://www.instagram.com/bangalore_beyblade_association/"
+          target="_blank"
+          rel="noreferrer"
+          className="tap font-semibold"
+          style={{ color: "#00E6C3" }}
+        >
+          @bangalore_beyblade_association
+        </a>{" "}
+        (open the post → ⋯ → Copy Link). No login or API key needed — it embeds directly.
+      </p>
+      <form onSubmit={add} className="flex gap-2 mb-3">
+        <input
+          placeholder="https://www.instagram.com/p/..."
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+          style={fieldStyle()}
+        />
+        <button disabled={busy} type="submit" className="tap px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
+          Add
+        </button>
+      </form>
+      {url && !preview && (
+        <p className="text-xs mb-4" style={{ color: "#FF6B5A" }}>Doesn't look like a valid Instagram post link yet.</p>
+      )}
+      {preview && (
+        <div className="mb-8">
+          <div className="flex items-center gap-1.5 mb-2">
+            <span
+              className="rounded-full"
+              style={{ width: 6, height: 6, background: "#00E6C3", animation: "glow-pulse 1.8s ease-in-out infinite" }}
+            />
+            <span className="text-xs font-semibold" style={{ color: "#7A8194", letterSpacing: 0.5 }}>PREVIEW</span>
+          </div>
+          <div className="rounded-2xl overflow-hidden" style={{ height: 460, maxWidth: 400, border: "1px solid #1C2136" }}>
+            <iframe
+              src={preview}
+              title="Preview"
+              loading="lazy"
+              scrolling="no"
+              style={{ width: "100%", height: 700, border: "none", marginTop: -1 }}
+            />
+          </div>
+        </div>
+      )}
+      <h3 className="font-semibold mb-3">Featured posts ({posts.length})</h3>
+      {posts.length === 0 ? (
+        <p className="text-sm" style={{ color: "#7A8194" }}>No posts added yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {posts.map((p) => (
+            <div
+              key={p.id}
+              className="flex items-center justify-between px-4 py-3 rounded-xl gap-2"
+              style={{ background: "#141827", border: "1px solid #1C2136" }}
+            >
+              <span className="text-sm truncate" style={{ color: "#9AA1B4" }}>{p.url}</span>
+              <button
+                onClick={() => remove(p)}
+                className="tap px-3 py-1.5 rounded-full text-xs font-semibold shrink-0"
+                style={{ border: "1px solid #2A3050", color: "#FF6B5A" }}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

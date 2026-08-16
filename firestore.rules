@@ -73,6 +73,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // featured Instagram posts — each doc is just a post URL, embedded
+    // client-side via Instagram's public /embed iframe (no token needed)
+    match /instagramPosts/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // ---------------- products ----------------
     match /products/{id} {
       allow read: if resource.data.status == 'approved' ||
