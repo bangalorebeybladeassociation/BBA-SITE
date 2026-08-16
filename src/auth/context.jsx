@@ -1,18 +1,18 @@
 import { createContext, useContext } from "react";
 
 /* ---------------------------------------------------------
-   Shape AuthProvider supplies. user/loading/role/setRole/
-   isAdmin are read by App.jsx; the action functions are used
-   by AuthPage's forms.
+   Shape AuthProvider supplies. user/loading/firestoreRole/
+   isAdmin/isSeller are read by App.jsx; the action functions
+   are used by AuthPage's forms.
 --------------------------------------------------------- */
 export const AuthContext = createContext({
   user: null,
   loading: false,
-  role: "buyer",
-  setRole: () => {},
   firestoreRole: null,
   isAdmin: false,
   isSeller: false,
+  blockedNotice: false,
+  clearBlockedNotice: () => {},
   signUp: async () => {},
   signIn: async () => {},
   signInWithGoogle: async () => {},

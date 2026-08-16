@@ -4,7 +4,9 @@ import bbaLogo from "./assets/bba-logo.png";
 import { useAuth } from "./auth/context";
 import AuthPage from "./pages/AuthPage";
 import AccountMenu from "./components/AccountMenu";
+import Icon from "./components/Icon";
 import { readAuthRoute, goAuth, leaveAuth, ROUTE_EVENT } from "./lib/authRoute";
+import { readPage, leavePage, PAGE_EVENT } from "./lib/pageRoute";
 import { firebaseReady } from "./lib/firebase";
 import {
   listenEvents,
@@ -24,8 +26,10 @@ import {
   decideProduct,
   listenUserProfile,
   setUserRole,
+  setUserBlocked,
+  deleteUserProfile,
   setUserPaymentInfo,
-  findUserByEmail,
+  listenAllUsers,
   createOrdersForCart,
   listenMyOrders,
   listenSellerOrders,
@@ -80,6 +84,52 @@ function Reveal({ children, delay = 0, className = "" }) {
       }}
     >
       {children}
+    </div>
+  );
+}
+
+/* ---------- count-up, driven by the same reveal trigger ---------- */
+function useCountUp(target, start, duration = 1200) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!start) return;
+    let raf;
+    const t0 = performance.now();
+    const tick = (now) => {
+      const progress = Math.min((now - t0) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setValue(Math.round(target * eased));
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [start, target, duration]);
+  return value;
+}
+
+/* ---------- stat card — reveals in, then counts its number up ---------- */
+function StatCard({ value, label, delay = 0 }) {
+  const [ref, shown] = useReveal();
+  const match = value.match(/^(\d+)(.*)$/);
+  const numeric = match ? parseInt(match[1], 10) : null;
+  const suffix = match ? match[2] : "";
+  const count = useCountUp(numeric ?? 0, shown);
+  return (
+    <div
+      ref={ref}
+      className="lift p-5 rounded-2xl"
+      style={{
+        background: "#141827",
+        border: "1px solid #1C2136",
+        opacity: shown ? 1 : 0,
+        transform: shown ? "translateY(0)" : "translateY(24px)",
+        transition: `opacity 700ms ${EASE} ${delay}ms, transform 700ms ${EASE} ${delay}ms`,
+      }}
+    >
+      <div className="disp font-bold" style={{ fontSize: 34, color: "#00E6C3" }}>
+        {numeric !== null ? count : value}{suffix}
+      </div>
+      <div className="text-sm mt-1" style={{ color: "#9AA1B4" }}>{label}</div>
     </div>
   );
 }
@@ -234,6 +284,18 @@ function useAllProducts(enabled) {
   return products;
 }
 
+function useAllUsers(enabled) {
+  const [users, setUsers] = useState([]);
+  useEffect(() => {
+    if (!enabled) {
+      setUsers([]);
+      return;
+    }
+    return listenAllUsers(setUsers);
+  }, [enabled]);
+  return users;
+}
+
 function useMyProfile(uid) {
   const [profile, setProfile] = useState(null);
   useEffect(() => {
@@ -295,8 +357,9 @@ export default function App() {
   const [ordersOpen, setOrdersOpen] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState(null);
 
-  const { user, loading: authLoading, role, setRole, isAdmin, isSeller } = useAuth();
+  const { user, loading: authLoading, isAdmin, isSeller, blockedNotice, clearBlockedNotice } = useAuth();
   const [route, setRoute] = useState(readAuthRoute);
+  const [page, setPage] = useState(readPage);
 
   const events = useEvents();
   const leaderboard = useLeaderboardRows();
@@ -306,6 +369,7 @@ export default function App() {
   const [approvedProducts, productsLoaded] = useApprovedProducts();
   const sellerProducts = useSellerProducts(isSeller ? user?.uid : null);
   const allProducts = useAllProducts(isAdmin);
+  const allUsers = useAllUsers(isAdmin);
   const myOrders = useMyOrders(user?.uid);
   const sellerOrders = useSellerOrders(user?.uid, isSeller);
 
@@ -331,6 +395,31 @@ export default function App() {
     if (route.mode) window.scrollTo(0, 0);
   }, [route.mode]);
 
+  // ?page=seller|admin drives the dedicated dashboard pages, reached from
+  // the account menu rather than an inline tab switcher.
+  useEffect(() => {
+    const sync = () => setPage(readPage());
+    window.addEventListener("popstate", sync);
+    window.addEventListener(PAGE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener(PAGE_EVENT, sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (page) window.scrollTo(0, 0);
+  }, [page]);
+
+  // Bounce back to the site if the URL points at a dashboard this account
+  // isn't (or is no longer) authorized for — e.g. an admin revoked access
+  // while the tab was open.
+  useEffect(() => {
+    if (authLoading) return;
+    if (page === "seller" && !isSeller) leavePage();
+    if (page === "admin" && !isAdmin) leavePage();
+  }, [page, authLoading, isSeller, isAdmin]);
+
   /* Landing on an auth route with a session means sign-in just succeeded —
      either from this page, or from a Google redirect that reloaded us back
      here. Same exit either way, honouring ?next=. */
@@ -346,6 +435,14 @@ export default function App() {
       );
     }
   }, [authLoading, user, route, fireToast]);
+
+  // An admin can block/unblock live — if this session's account gets
+  // blocked, AuthProvider signs them out and flags it here.
+  useEffect(() => {
+    if (!blockedNotice) return;
+    fireToast("Your account has been blocked. Contact an admin.");
+    clearBlockedNotice();
+  }, [blockedNotice, clearBlockedNotice, fireToast]);
 
   const addToCart = (p) => {
     setCart((c) => {
@@ -376,11 +473,6 @@ export default function App() {
     }
   };
 
-  /* Seller/Admin tabs need a real granted role, not just a session — a
-     stale "seller" preference must not leak through after signing out or
-     after an admin revokes access. */
-  const activeRole = !user ? "buyer" : role === "seller" && !isSeller ? "buyer" : role === "admin" && !isAdmin ? "buyer" : role;
-
   return (
     <div
       style={{
@@ -394,21 +486,81 @@ export default function App() {
         ${FONT_IMPORT}
         @keyframes blade-spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
         @keyframes toast-in { from { opacity:0; transform: translate(-50%,12px);} to {opacity:1; transform: translate(-50%,0);} }
-        @keyframes pop-in { from { opacity:0; transform: translateY(-6px);} to {opacity:1; transform: translateY(0);} }
+        @keyframes pop-in { from { opacity:0; transform: scale(0.7);} to {opacity:1; transform: scale(1);} }
         @keyframes auth-in { from { opacity:0; transform: translateY(14px);} to {opacity:1; transform: translateY(0);} }
+        @keyframes glow-pulse { 0%,100% { opacity:0.5;} 50% { opacity:0.9;} }
         .disp { font-family:'Rajdhani',sans-serif; }
-        .tap { transition: transform 150ms ${EASE}, opacity 150ms ${EASE}; }
+        .tap { transition: transform 200ms ${EASE}, opacity 150ms ${EASE}, filter 200ms ${EASE}; }
         .tap:active { transform: scale(0.96); opacity:0.85; }
+        .lift { transition: transform 260ms ${EASE}, box-shadow 260ms ${EASE}, border-color 260ms ${EASE}; }
+        .nav-link { position: relative; padding-bottom: 2px; }
+        .nav-link::after {
+          content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 2px;
+          background: #00E6C3; border-radius: 1px; transform: scaleX(0); transform-origin: center;
+          transition: transform 280ms ${EASE};
+        }
+        @media (hover: hover) {
+          .tap:hover { filter: brightness(1.1); }
+          .lift:hover { transform: translateY(-4px); box-shadow: 0 16px 30px rgba(0,0,0,0.35); border-color: #2A3050 !important; }
+          .nav-link:hover::after { transform: scaleX(1); }
+        }
         ::selection { background:#FF4425; color:#0A0D18; }
         @media (prefers-reduced-motion: reduce) {
           * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
         }
       `}</style>
 
-      {/* AUTH VIEW — replaces the site, but stays inside this wrapper so the
-          font import, .disp/.tap classes and keyframes above still apply. */}
+      {/* AUTH VIEW / DASHBOARD PAGES — each replaces the site, but stays
+          inside this wrapper so the font import, .disp/.tap classes and
+          keyframes above still apply. */}
       {route.mode ? (
         <AuthPage mode={route.mode} next={route.next} onClose={leaveAuth} />
+      ) : page === "seller" && isSeller ? (
+        <DashboardPage
+          icon="seller"
+          title="Seller Dashboard"
+          subtitle="Manage your listings, sales, and payment info."
+          onBack={leavePage}
+        >
+          <SellerPanel
+            seller={user}
+            profile={myProfile}
+            products={sellerProducts}
+            orders={sellerOrders}
+            onCreate={async (p) => {
+              await createProduct(p);
+              fireToast("Listing submitted for admin approval");
+            }}
+            onSavePaymentInfo={async (info) => {
+              await setUserPaymentInfo(user.uid, info);
+              fireToast("Payment info saved");
+            }}
+            onMarkPaid={async (orderId) => {
+              await setOrderStatus(orderId, "paid");
+              fireToast("Order marked as paid");
+            }}
+          />
+        </DashboardPage>
+      ) : page === "admin" && isAdmin ? (
+        <DashboardPage
+          icon="admin"
+          title="Admin Dashboard"
+          subtitle="Manage roles, listings, events, the leaderboard, and the rulebook."
+          onBack={leavePage}
+        >
+          <AdminPanel
+            products={allProducts}
+            onDecide={async (id, status) => {
+              await decideProduct(id, status);
+              fireToast(status === "approved" ? "Listing approved" : "Listing rejected");
+            }}
+            events={events}
+            leaderboard={leaderboard}
+            rulebookText={rulebookText}
+            fireToast={fireToast}
+            users={allUsers}
+          />
+        </DashboardPage>
       ) : (
       <>
 
@@ -432,11 +584,21 @@ export default function App() {
           <span className="disp font-bold tracking-wide text-lg lg:hidden">BBA</span>
         </a>
         <div className="hidden md:flex items-center gap-7 text-sm" style={{ color: "#C7CCDA" }}>
-          <a href="#timeline" className="tap hover:text-white">Timeline</a>
-          <a href="#videos" className="tap hover:text-white">Videos</a>
-          <a href="#leaderboard" className="tap hover:text-white">Leaderboard</a>
-          <a href="#rulebook" className="tap hover:text-white">Rulebook</a>
-          <a href="#market" className="tap hover:text-white">Shop</a>
+          <a href="#events" className="tap nav-link hover:text-white flex items-center gap-1.5">
+            <Icon name="events" /> Events
+          </a>
+          <a href="#videos" className="tap nav-link hover:text-white flex items-center gap-1.5">
+            <Icon name="videos" /> Videos
+          </a>
+          <a href="#leaderboard" className="tap nav-link hover:text-white flex items-center gap-1.5">
+            <Icon name="leaderboard" /> Leaderboard
+          </a>
+          <a href="#rulebook" className="tap nav-link hover:text-white flex items-center gap-1.5">
+            <Icon name="rulebook" /> Rulebook
+          </a>
+          <a href="#market" className="tap nav-link hover:text-white flex items-center gap-1.5">
+            <Icon name="shop" /> Shop
+          </a>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -444,11 +606,20 @@ export default function App() {
             className="tap relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
             style={{ background: "#FF4425", color: "#0A0D18" }}
           >
-            Cart
+            <Icon name="cart" size={16} /> Cart
             {cartCount > 0 && (
               <span
+                key={cartCount}
                 className="absolute -top-2 -right-2 rounded-full flex items-center justify-center"
-                style={{ width: 20, height: 20, background: "#00E6C3", color: "#0A0D18", fontSize: 11, fontWeight: 700 }}
+                style={{
+                  width: 20,
+                  height: 20,
+                  background: "#00E6C3",
+                  color: "#0A0D18",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  animation: `pop-in 320ms ${EASE}`,
+                }}
               >
                 {cartCount}
               </span>
@@ -504,7 +675,7 @@ export default function App() {
       <Reveal className="max-w-6xl mx-auto px-5 md:px-10 pb-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            ["#timeline", "Timeline", "Every event, past and upcoming, with live brackets"],
+            ["#events", "Events", "Every event, past and upcoming, with live brackets"],
             ["#videos", "Videos", "Match highlights and judge breakdowns"],
             ["#leaderboard", "Leaderboard", "Season 3 rankings across all events"],
             ["#market", "Shop", "Buy parts, or sell your own as an approved seller"],
@@ -512,7 +683,7 @@ export default function App() {
             <a
               key={href}
               href={href}
-              className="tap p-4 rounded-2xl block"
+              className="tap lift p-4 rounded-2xl block"
               style={{ background: "#141827", border: "1px solid #1C2136" }}
             >
               <div className="disp font-semibold text-base" style={{ color: "#00E6C3" }}>{title}</div>
@@ -523,24 +694,21 @@ export default function App() {
       </Reveal>
 
       {/* STATS STRIP */}
-      <Reveal className="max-w-6xl mx-auto px-5 md:px-10 grid grid-cols-2 md:grid-cols-4 gap-6 pb-24">
+      <div className="max-w-6xl mx-auto px-5 md:px-10 grid grid-cols-2 md:grid-cols-4 gap-6 pb-24">
         {[
           ["12", "Tournaments hosted"],
           ["310+", "Registered bladers"],
           ["4", "Bangalore regions"],
           ["1", "WBO-certified judge"],
-        ].map(([n, l]) => (
-          <div key={l} className="p-5 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-            <div className="disp font-bold" style={{ fontSize: 34, color: "#00E6C3" }}>{n}</div>
-            <div className="text-sm mt-1" style={{ color: "#9AA1B4" }}>{l}</div>
-          </div>
+        ].map(([n, l], i) => (
+          <StatCard key={l} value={n} label={l} delay={i * 70} />
         ))}
-      </Reveal>
+      </div>
 
-      {/* TIMELINE */}
-      <section id="timeline" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
+      {/* EVENTS */}
+      <section id="events" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
         <Reveal>
-          <h2 className="disp font-bold text-3xl mb-2">Tournament Timeline</h2>
+          <h2 className="disp font-bold text-3xl mb-2">Tournament Events</h2>
           <p style={{ color: "#9AA1B4" }} className="mb-2">Every event, past and upcoming — tap a bracket to open it live on Challonge.</p>
           <p className="text-xs mb-10" style={{ color: "#7A8194" }}>New to brackets? Challonge is a free third-party tool that runs the live match tree — you don't need an account to view it, only to compete.</p>
         </Reveal>
@@ -554,7 +722,7 @@ export default function App() {
                 className="absolute rounded-full"
                 style={{ left: -37, top: 6, width: 14, height: 14, background: t.accent || "#FF4425", boxShadow: `0 0 0 4px #0A0D18` }}
               />
-              <div className="p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-4" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+              <div className="lift p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-4" style={{ background: "#141827", border: "1px solid #1C2136" }}>
                 <div
                   className="rounded-xl shrink-0 flex items-center justify-center"
                   style={{ width: 64, height: 64, background: "#1C2136" }}
@@ -604,7 +772,7 @@ export default function App() {
             <Reveal key={v.id} delay={i * 70}>
               <button
                 onClick={() => fireToast("Connect a video source (YouTube/Drive) to play this")}
-                className="tap w-full text-left rounded-2xl overflow-hidden"
+                className="tap lift w-full text-left rounded-2xl overflow-hidden"
                 style={{ background: "#141827", border: "1px solid #1C2136" }}
               >
                 <div
@@ -673,73 +841,23 @@ export default function App() {
         </div>
       </section>
 
-      {/* MARKETPLACE */}
+      {/* MARKETPLACE — buying only. Selling/administering live on their own
+          dashboard pages, reached from the account menu. */}
       <section id="market" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
         <Reveal>
           <h2 className="disp font-bold text-3xl mb-2">Marketplace</h2>
-          <p style={{ color: "#9AA1B4" }} className="mb-6">Buy from approved sellers, or manage your own inventory once an admin enables selling for your account.</p>
+          <p style={{ color: "#9AA1B4" }} className="mb-6">Buy parts from approved sellers across Bangalore's Beyblade X community.</p>
         </Reveal>
-
-        <RoleTabs
-          role={activeRole}
-          setRole={setRole}
-          isSeller={isSeller}
-          isAdmin={isAdmin}
-          onLocked={() =>
-            fireToast(user ? "Ask an admin to enable selling for your account" : "Sign in first")
-          }
-        />
-        <p className="text-sm mt-3 mb-2" style={{ color: "#9AA1B4" }}>
-          {activeRole === "buyer" && "Browse parts approved sellers have listed, and add them to your cart."}
-          {activeRole === "seller" && "List parts for sale. New listings go to the admin for approval before buyers can see them."}
-          {activeRole === "admin" && "Manage listings, roles, events, the leaderboard, and the rulebook."}
-        </p>
         {!user && (
           <p className="text-xs mb-2" style={{ color: "#7A8194" }}>
             <button onClick={() => goAuth("login", "market")} className="tap font-semibold" style={{ color: "#00E6C3" }}>
               Sign in
             </button>{" "}
-            to buy or sell.
+            to buy.
           </p>
         )}
-
         <div className="mt-6">
-          {activeRole === "buyer" && (
-            <BuyerPanel products={approvedProducts} onAdd={addToCart} loaded={productsLoaded} />
-          )}
-          {activeRole === "seller" && (
-            <SellerPanel
-              seller={user}
-              profile={myProfile}
-              products={sellerProducts}
-              orders={sellerOrders}
-              onCreate={async (p) => {
-                await createProduct(p);
-                fireToast("Listing submitted for admin approval");
-              }}
-              onSavePaymentInfo={async (info) => {
-                await setUserPaymentInfo(user.uid, info);
-                fireToast("Payment info saved");
-              }}
-              onMarkPaid={async (orderId) => {
-                await setOrderStatus(orderId, "paid");
-                fireToast("Order marked as paid");
-              }}
-            />
-          )}
-          {activeRole === "admin" && (
-            <AdminPanel
-              products={allProducts}
-              onDecide={async (id, status) => {
-                await decideProduct(id, status);
-                fireToast(status === "approved" ? "Listing approved" : "Listing rejected");
-              }}
-              events={events}
-              leaderboard={leaderboard}
-              rulebookText={rulebookText}
-              fireToast={fireToast}
-            />
-          )}
+          <BuyerPanel products={approvedProducts} onAdd={addToCart} loaded={productsLoaded} />
         </div>
       </section>
 
@@ -917,36 +1035,34 @@ export default function App() {
   );
 }
 
-/* ---------- role tabs ----------
-   Selling needs a real admin-granted role, so "Seller" is
-   locked (not hidden) until the account is nominated — same
-   treatment the old code gave signed-out users, now driven by
-   isSeller instead of just having a session. Admin stays
-   hidden entirely rather than advertised-but-locked.          */
-function RoleTabs({ role, setRole, isSeller, isAdmin, onLocked }) {
-  const tabs = [
-    ["buyer", "Buyer", false],
-    ["seller", "Seller", !isSeller],
-  ];
-  if (isAdmin) tabs.push(["admin", "Admin", false]);
-
+/* ---------- dashboard page shell ----------
+   Full-page replacement for the Seller/Admin dashboards, same
+   pattern as AuthPage — reached from the account menu rather
+   than an inline tab switcher within the site.                */
+function DashboardPage({ icon, title, subtitle, onBack, children }) {
   return (
-    <div className="inline-flex p-1 rounded-full" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-      {tabs.map(([k, label, locked]) => (
-        <button
-          key={k}
-          onClick={() => (locked ? onLocked() : setRole(k))}
-          title={locked ? "Ask an admin to enable selling for your account" : undefined}
-          className="tap px-5 py-2 rounded-full text-sm font-semibold relative"
-          style={{
-            color: role === k ? "#0A0D18" : locked ? "#5A6178" : "#9AA1B4",
-            background: role === k ? "#00E6C3" : "transparent",
-            transition: `all 300ms ${EASE}`,
-          }}
-        >
-          {label}
-        </button>
-      ))}
+    <div
+      className="min-h-screen px-5 md:px-10 py-10 max-w-5xl mx-auto"
+      style={{ animation: `auth-in 380ms ${EASE}` }}
+    >
+      <button onClick={onBack} className="tap text-sm mb-6 inline-block" style={{ color: "#7A8194" }}>
+        ← Back to site
+      </button>
+      <h1 className="disp font-bold text-3xl mb-1 flex items-center gap-2.5">
+        {icon && (
+          <span
+            className="flex items-center justify-center rounded-full shrink-0"
+            style={{ width: 34, height: 34, background: "#00E6C31A", color: "#00E6C3" }}
+          >
+            <Icon name={icon} size={18} />
+          </span>
+        )}
+        {title}
+      </h1>
+      {subtitle && (
+        <p className="text-sm mb-8" style={{ color: "#9AA1B4" }}>{subtitle}</p>
+      )}
+      {children}
     </div>
   );
 }
@@ -1016,7 +1132,7 @@ function BuyerPanel({ products, onAdd, loaded }) {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {shown.map((p, i) => (
             <Reveal key={p.id} delay={i * 40}>
-              <div className="p-5 rounded-2xl flex flex-col gap-3" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+              <div className="lift p-5 rounded-2xl flex flex-col gap-3" style={{ background: "#141827", border: "1px solid #1C2136" }}>
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="font-semibold text-sm">{p.name}</div>
@@ -1239,7 +1355,7 @@ function SellerPanel({ seller, profile, products, orders, onCreate, onSavePaymen
 }
 
 /* ---------- admin ---------- */
-function AdminPanel({ products, onDecide, events, leaderboard, rulebookText, fireToast }) {
+function AdminPanel({ products, onDecide, events, leaderboard, rulebookText, fireToast, users }) {
   const [tab, setTab] = useState("listings");
 
   return (
@@ -1256,7 +1372,7 @@ function AdminPanel({ products, onDecide, events, leaderboard, rulebookText, fir
         onChange={setTab}
       />
       {tab === "listings" && <AdminListings products={products} onDecide={onDecide} />}
-      {tab === "roles" && <AdminRoles fireToast={fireToast} />}
+      {tab === "roles" && <AdminRoles fireToast={fireToast} users={users} />}
       {tab === "events" && <AdminEvents events={events} fireToast={fireToast} />}
       {tab === "leaderboard" && <AdminLeaderboard rows={leaderboard} fireToast={fireToast} />}
       {tab === "rulebook" && <AdminRulebook text={rulebookText} fireToast={fireToast} />}
@@ -1301,70 +1417,179 @@ function AdminListings({ products, onDecide }) {
   );
 }
 
-function AdminRoles({ fireToast }) {
-  const [email, setEmail] = useState("");
-  const [found, setFound] = useState(undefined); // undefined = not searched, null = not found
-  const [busy, setBusy] = useState(false);
+function formatLastLogin(ts) {
+  if (!ts) return "Never";
+  const date = typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
+  return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
 
-  const search = async (e) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setBusy(true);
+function AdminRoles({ fireToast, users }) {
+  const { user: currentUser } = useAuth();
+  const [filter, setFilter] = useState("");
+  const [busyUid, setBusyUid] = useState(null);
+  const [confirmUid, setConfirmUid] = useState(null);
+
+  const assign = async (u, role) => {
+    if (role === u.role) return;
+    setBusyUid(u.uid);
     try {
-      const u = await findUserByEmail(email);
-      setFound(u);
-      if (!u) fireToast("No account with that email yet — they need to sign in once first");
+      await setUserRole(u.uid, role);
+      fireToast(`${u.name} is now ${role}`);
     } finally {
-      setBusy(false);
+      setBusyUid(null);
     }
   };
 
-  const assign = async (role) => {
-    if (!found) return;
-    setBusy(true);
+  const toggleBlocked = async (u) => {
+    if (u.uid === currentUser?.uid) {
+      fireToast("You can't block your own account");
+      return;
+    }
+    setBusyUid(u.uid);
     try {
-      await setUserRole(found.uid, role);
-      setFound({ ...found, role });
-      fireToast(`${found.name} is now ${role}`);
+      await setUserBlocked(u.uid, !u.blocked);
+      fireToast(u.blocked ? `${u.name} unblocked` : `${u.name} blocked`);
     } finally {
-      setBusy(false);
+      setBusyUid(null);
     }
   };
+
+  const remove = async (u) => {
+    if (u.uid === currentUser?.uid) {
+      fireToast("You can't remove your own account");
+      return;
+    }
+    setBusyUid(u.uid);
+    try {
+      await deleteUserProfile(u.uid);
+      fireToast(`${u.name} removed from the directory`);
+    } finally {
+      setBusyUid(null);
+      setConfirmUid(null);
+    }
+  };
+
+  const q = filter.trim().toLowerCase();
+  const shown = users
+    .filter((u) => !q || u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q))
+    .sort((a, b) => (b.lastLoginAt?.toMillis?.() ?? 0) - (a.lastLoginAt?.toMillis?.() ?? 0));
 
   return (
-    <div className="max-w-md">
-      <form onSubmit={search} className="flex gap-2 mb-5">
-        <input
-          placeholder="Look up by email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
-          style={fieldStyle()}
-        />
-        <button disabled={busy} type="submit" className="tap px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
-          Search
-        </button>
-      </form>
-      {found && (
-        <div className="p-4 rounded-xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-          <div className="text-sm font-medium">{found.name}</div>
-          <div className="text-xs mb-3" style={{ color: "#7A8194" }}>{found.email} · currently <span style={{ color: "#00E6C3" }}>{found.role}</span></div>
-          <div className="flex gap-2 flex-wrap">
-            {["user", "seller", "admin"].map((r) => (
-              <button
-                key={r}
-                disabled={busy || found.role === r}
-                onClick={() => assign(r)}
-                className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
-                style={{
-                  background: found.role === r ? "#2A3050" : "#00E6C3",
-                  color: found.role === r ? "#7A8194" : "#0A0D18",
-                }}
-              >
-                Make {r}
-              </button>
-            ))}
-          </div>
+    <div>
+      <input
+        placeholder="Filter by name or email"
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        className="w-full max-w-sm px-3 py-2 rounded-lg text-sm outline-none mb-5"
+        style={fieldStyle()}
+      />
+      {shown.length === 0 ? (
+        <p className="text-sm" style={{ color: "#7A8194" }}>
+          {users.length === 0 ? "No one has signed in yet." : "No matches."}
+        </p>
+      ) : (
+        <div className="rounded-2xl overflow-x-auto" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+          <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ color: "#7A8194", textAlign: "left" }}>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Name</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Email</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Last login</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Role</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((u) => (
+                <tr key={u.uid} style={{ borderTop: "1px solid #1C2136" }}>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">
+                    {u.name}
+                    {u.uid === currentUser?.uid && (
+                      <span className="ml-2 text-xs" style={{ color: "#7A8194" }}>(you)</span>
+                    )}
+                    {u.blocked && (
+                      <span
+                        className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: "#FF44251A", color: "#FF4425" }}
+                      >
+                        Blocked
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#9AA1B4" }}>{u.email}</td>
+                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#9AA1B4" }}>
+                    {formatLastLogin(u.lastLoginAt || u.updatedAt)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-1.5 flex-wrap">
+                      {["user", "seller", "admin"].map((r) => (
+                        <button
+                          key={r}
+                          disabled={busyUid === u.uid || u.role === r}
+                          onClick={() => assign(u, r)}
+                          className="tap px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
+                          style={{
+                            background: u.role === r ? "#00E6C3" : "transparent",
+                            color: u.role === r ? "#0A0D18" : "#9AA1B4",
+                            border: u.role === r ? "none" : "1px solid #2A3050",
+                          }}
+                        >
+                          <Icon name={r} size={13} /> {r}
+                        </button>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.uid === currentUser?.uid ? (
+                      <span className="text-xs" style={{ color: "#7A8194" }}>—</span>
+                    ) : confirmUid === u.uid ? (
+                      <div className="flex gap-1.5 flex-wrap items-center">
+                        <span className="text-xs" style={{ color: "#FF9354" }}>Remove for good?</span>
+                        <button
+                          disabled={busyUid === u.uid}
+                          onClick={() => remove(u)}
+                          className="tap px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
+                          style={{ background: "#FF4425", color: "#0A0D18" }}
+                        >
+                          <Icon name="remove" size={13} /> Confirm
+                        </button>
+                        <button
+                          onClick={() => setConfirmUid(null)}
+                          className="tap px-2.5 py-1 rounded-full text-xs font-semibold"
+                          style={{ border: "1px solid #2A3050", color: "#9AA1B4" }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1.5 flex-wrap">
+                        <button
+                          disabled={busyUid === u.uid}
+                          onClick={() => toggleBlocked(u)}
+                          className="tap px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
+                          style={{
+                            background: u.blocked ? "#00E6C3" : "transparent",
+                            color: u.blocked ? "#0A0D18" : "#FF9354",
+                            border: u.blocked ? "none" : "1px solid #2A3050",
+                          }}
+                        >
+                          <Icon name={u.blocked ? "unblock" : "block"} size={13} /> {u.blocked ? "Unblock" : "Block"}
+                        </button>
+                        <button
+                          disabled={busyUid === u.uid}
+                          onClick={() => setConfirmUid(u.uid)}
+                          className="tap px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
+                          style={{ border: "1px solid #2A3050", color: "#FF6B5A" }}
+                        >
+                          <Icon name="remove" size={13} /> Remove
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

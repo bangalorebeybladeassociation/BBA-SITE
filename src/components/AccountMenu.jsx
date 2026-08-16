@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/context";
 import { goAuth } from "../lib/authRoute";
+import { goPage } from "../lib/pageRoute";
+import Icon from "./Icon";
 
 export default function AccountMenu({ onSignedOut, onOpenOrders }) {
-  const { user, signOutUser } = useAuth();
+  const { user, signOutUser, isSeller, isAdmin } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -57,7 +59,14 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
       {open && (
         <div
           className="absolute right-0 mt-2 rounded-xl overflow-hidden"
-          style={{ background: "#141827", border: "1px solid #1C2136", minWidth: 160, zIndex: 50 }}
+          style={{
+            background: "#141827",
+            border: "1px solid #1C2136",
+            minWidth: 160,
+            zIndex: 50,
+            transformOrigin: "top right",
+            animation: "pop-in 180ms cubic-bezier(0.32,0.72,0,1)",
+          }}
         >
           <button
             onClick={() => {
@@ -69,6 +78,30 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
           >
             My orders
           </button>
+          {isSeller && (
+            <button
+              onClick={() => {
+                setOpen(false);
+                goPage("seller");
+              }}
+              className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2"
+              style={{ color: "#F4F2EC", borderBottom: "1px solid #1C2136" }}
+            >
+              <Icon name="seller" /> Seller dashboard
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setOpen(false);
+                goPage("admin");
+              }}
+              className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2"
+              style={{ color: "#F4F2EC", borderBottom: "1px solid #1C2136" }}
+            >
+              <Icon name="admin" /> Admin dashboard
+            </button>
+          )}
           <button
             onClick={async () => {
               setOpen(false);

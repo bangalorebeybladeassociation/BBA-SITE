@@ -30,8 +30,8 @@ function toAppUser(fbUser) {
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(firebaseReady);
-  const [role, setRole] = useState("buyer");
   const [firestoreRole, setFirestoreRole] = useState(null);
+  const [blockedNotice, setBlockedNotice] = useState(false);
 
   // While signUp() is applying a display name, the auth-state listener can
   // fire first with the name still unset — skip that intermediate event so
@@ -55,6 +55,11 @@ export default function AuthProvider({ children }) {
       if (fbUser) {
         upsertUserProfile(fbUser).then(() => {
           profileUnsub.current = listenUserProfile(fbUser.uid, (profile) => {
+            if (profile?.blocked) {
+              signOut(auth);
+              setBlockedNotice(true);
+              return;
+            }
             setFirestoreRole(profile?.role || "user");
           });
         });
@@ -75,11 +80,13 @@ export default function AuthProvider({ children }) {
     () => ({
       user,
       loading,
-      role,
-      setRole,
       firestoreRole,
       isAdmin,
       isSeller,
+      blockedNotice,
+      clearBlockedNotice() {
+        setBlockedNotice(false);
+      },
       async signUp(name, email, password) {
         pendingName.current = name || null;
         try {
@@ -101,7 +108,7 @@ export default function AuthProvider({ children }) {
         await signOut(auth);
       },
     }),
-    [user, loading, role, firestoreRole, isAdmin, isSeller]
+    [user, loading, firestoreRole, isAdmin, isSeller, blockedNotice]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

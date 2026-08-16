@@ -29,6 +29,11 @@ service cloud.firestore {
         userDoc(request.auth.uid).role == 'seller';
     }
 
+    function isBlocked() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        userDoc(request.auth.uid).blocked == true;
+    }
+
     // ---------------- users ----------------
     match /users/{uid} {
       // A seller's name/UPI/contact is semi-public by nature of listing in
@@ -38,12 +43,15 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create: if signedIn() && request.auth.uid == uid &&
         request.resource.data.role == 'user';
+      // role and blocked are admin-only fields — a self-update must leave
+      // both exactly as they were.
       allow update: if signedIn() && (
         (request.auth.uid == uid &&
-          request.resource.data.role == resource.data.role) ||
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.get('blocked', false) == resource.data.get('blocked', false)) ||
         isAdmin()
       );
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     // ---------------- public content, admin-managed ----------------
@@ -66,7 +74,7 @@ service cloud.firestore {
     match /products/{id} {
       allow read: if resource.data.status == 'approved' ||
         (signedIn() && (resource.data.sellerId == request.auth.uid || isAdmin()));
-      allow create: if signedIn() && (isSeller() || isAdmin()) &&
+      allow create: if signedIn() && !isBlocked() && (isSeller() || isAdmin()) &&
         request.resource.data.sellerId == request.auth.uid &&
         request.resource.data.status == 'pending';
       allow update: if signedIn() && (
@@ -85,7 +93,7 @@ service cloud.firestore {
         request.auth.uid in resource.data.sellerIds ||
         isAdmin()
       );
-      allow create: if signedIn() && request.resource.data.buyerId == request.auth.uid;
+      allow create: if signedIn() && !isBlocked() && request.resource.data.buyerId == request.auth.uid;
       allow update: if signedIn() && (
         resource.data.buyerId == request.auth.uid ||
         request.auth.uid in resource.data.sellerIds ||

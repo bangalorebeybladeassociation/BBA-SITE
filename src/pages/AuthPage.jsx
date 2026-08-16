@@ -82,7 +82,11 @@ export default function AuthPage({ mode, next, onClose }) {
     >
       <div
         className="w-full max-w-sm rounded-2xl p-8"
-        style={{ background: "#141827", border: "1px solid #1C2136" }}
+        style={{
+          background: "#141827",
+          border: "1px solid #1C2136",
+          animation: `auth-in 420ms ${EASE}`,
+        }}
       >
         <h1 className="disp text-2xl font-bold mb-1 text-center">
           {isSignup ? "Create account" : "Sign in"}

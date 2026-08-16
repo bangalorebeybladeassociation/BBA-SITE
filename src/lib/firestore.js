@@ -4,8 +4,6 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  getDocs,
-  limit,
   onSnapshot,
   query,
   serverTimestamp,
@@ -37,6 +35,7 @@ export async function upsertUserProfile(fbUser) {
       role: "user",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      lastLoginAt: serverTimestamp(),
     });
   } else {
     await updateDoc(ref, {
@@ -44,6 +43,11 @@ export async function upsertUserProfile(fbUser) {
       email: fbUser.email,
       photoURL: fbUser.photoURL || null,
       updatedAt: serverTimestamp(),
+      // Separate from updatedAt, which also moves on unrelated profile
+      // edits (role changes, payment info) — this is specifically "was
+      // here", touched every time the auth listener resolves a session
+      // (fresh sign-in or a page load that restores one).
+      lastLoginAt: serverTimestamp(),
     });
   }
 }
@@ -63,15 +67,32 @@ export async function setUserRole(uid, role) {
   await updateDoc(doc(db, "users", uid), { role, updatedAt: serverTimestamp() });
 }
 
+export async function setUserBlocked(uid, blocked) {
+  await updateDoc(doc(db, "users", uid), { blocked, updatedAt: serverTimestamp() });
+}
+
+// "Remove from directory" — deletes their profile/role from this app. Their
+// actual login (Firebase Auth) still works; if they sign in again they come
+// back as a fresh plain "user". True account revocation needs the Admin SDK
+// on a backend, which this project doesn't have.
+export async function deleteUserProfile(uid) {
+  await deleteDoc(doc(db, "users", uid));
+}
+
 export async function setUserPaymentInfo(uid, { upiId, paymentContact }) {
   await updateDoc(doc(db, "users", uid), { upiId, paymentContact, updatedAt: serverTimestamp() });
 }
 
-export async function findUserByEmail(email) {
-  const q = query(collection(db, "users"), where("email", "==", email.trim().toLowerCase()), limit(1));
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  return { uid: snap.docs[0].id, ...snap.docs[0].data() };
+// admin-only: same "unfiltered list needs isAdmin()" rule as products/orders.
+export function listenAllUsers(cb) {
+  return onSnapshot(
+    collection(db, "users"),
+    (snap) => cb(snap.docs.map((d) => ({ uid: d.id, ...d.data() }))),
+    (err) => {
+      console.error("listenAllUsers", err);
+      cb([]);
+    }
+  );
 }
 
 // ---------------- generic admin-managed collections ----------------
