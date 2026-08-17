@@ -1882,13 +1882,6 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
             <p className="text-xs mb-3" style={{ color: "var(--text-dim)" }}>
               Visitors / non-participants: <span style={{ color: "var(--text)" }}>₹{REGISTRATION_VISITOR_FEE} per person</span>
             </p>
-            <div className="p-3 rounded-xl mb-3" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
-              <div className="text-xs mb-1" style={{ color: "var(--text-faint)" }}>Pay via UPI</div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold" style={{ color: "var(--accent-ink)" }}>{REGISTRATION_UPI_ID}</span>
-                <CopyUpiButton copied={copied} onCopy={copyUpi} />
-              </div>
-            </div>
             <div className="p-3 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
               <div className="text-xs mb-2" style={{ color: "var(--text-faint)" }}>Total amount to pay</div>
               {form.participantType ? (
@@ -1903,16 +1896,18 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
                       <span>₹{visitorCount * REGISTRATION_VISITOR_FEE}</span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between mt-2 pt-2 mb-3" style={{ borderTop: "1px solid var(--border)" }}>
+                  <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
                     <span className="text-sm font-semibold">Total</span>
                     <span className="text-lg font-bold" style={{ color: "var(--accent-ink)" }}>₹{totalDue}</span>
                   </div>
-                  <UpiPayButton amount={totalDue} note={`${event.name} registration`} />
                 </>
               ) : (
                 <p className="text-xs" style={{ color: "var(--text-faint)" }}>Select Player or Visitor above to see your total.</p>
               )}
             </div>
+            <p className="text-xs mt-3" style={{ color: "var(--text-faint)" }}>
+              Submit your registration below first — you'll get the UPI pay button and payment details right after, so there's always a record even if you get interrupted mid-payment.
+            </p>
           </div>
 
           <div className="p-4 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
