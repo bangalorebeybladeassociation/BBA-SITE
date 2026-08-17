@@ -1623,6 +1623,8 @@ function DashboardPage({ icon, title, subtitle, onBack, children }) {
 }
 
 const REGISTRATION_UPI_ID = "sarkar.288@superyes";
+const REGISTRATION_PLAYER_FEE = 550;
+const REGISTRATION_VISITOR_FEE = 150;
 
 const REGISTRATION_TERMS = [
   "All registrations are final and non-refundable.",
@@ -1657,10 +1659,10 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
     bladerName: "",
     phone: "",
     age: "",
+    participantType: "",
     hasProducts: "",
     hasVisitor: "",
     visitorNames: [""],
-    paymentAmount: "",
     agreed: false,
   });
   const [busy, setBusy] = useState(false);
@@ -1673,13 +1675,17 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
     window.setTimeout(() => setCopied(false), 1800);
   };
 
+  const visitorNames = form.visitorNames.map((n) => n.trim()).filter(Boolean);
+  const visitorCount = form.hasVisitor === "yes" ? visitorNames.length : 0;
+  const participantFee = form.participantType === "visitor" ? REGISTRATION_VISITOR_FEE : REGISTRATION_PLAYER_FEE;
+  const totalDue = form.participantType ? participantFee + visitorCount * REGISTRATION_VISITOR_FEE : 0;
+
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.participantName || !form.bladerName || !form.phone || !form.age || !form.hasProducts || !form.hasVisitor) {
+    if (!form.participantName || !form.bladerName || !form.phone || !form.age || !form.participantType || !form.hasProducts || !form.hasVisitor) {
       fireToast("Please fill in all required fields");
       return;
     }
-    const visitorNames = form.visitorNames.map((n) => n.trim()).filter(Boolean);
     if (form.hasVisitor === "yes" && visitorNames.length === 0) {
       fireToast("Please add at least one visitor's name");
       return;
@@ -1699,10 +1705,11 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
         bladerName: form.bladerName,
         phone: form.phone,
         age: form.age,
+        participantType: form.participantType,
         hasProducts: form.hasProducts === "yes",
         hasVisitor: form.hasVisitor === "yes",
         visitorNames: form.hasVisitor === "yes" ? visitorNames : [],
-        paymentAmount: form.paymentAmount,
+        paymentAmount: totalDue,
         agreed: true,
       });
       setDone(true);
@@ -1754,6 +1761,18 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
               ]}
               value={form.age}
               onChange={(v) => setForm({ ...form, age: v })}
+            />
+          </div>
+
+          <div>
+            <span className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-faint)" }}>Are you coming as a Player or Visitor? *</span>
+            <SegmentedToggle
+              options={[
+                { value: "player", label: `Player (₹${REGISTRATION_PLAYER_FEE})` },
+                { value: "visitor", label: `Visitor (₹${REGISTRATION_VISITOR_FEE})` },
+              ]}
+              value={form.participantType}
+              onChange={(v) => setForm({ ...form, participantType: v })}
             />
           </div>
 
@@ -1831,10 +1850,10 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
               <span className="text-sm font-semibold">Payment info</span>
             </div>
             <p className="text-xs" style={{ color: "var(--text-dim)" }}>
-              Entry fee for Participants: <span style={{ color: "var(--text)" }}>₹550 per person</span>
+              Entry fee for Players: <span style={{ color: "var(--text)" }}>₹{REGISTRATION_PLAYER_FEE} per person</span>
             </p>
             <p className="text-xs mb-3" style={{ color: "var(--text-dim)" }}>
-              Non-participants: <span style={{ color: "var(--text)" }}>₹150 per person</span>
+              Visitors / non-participants: <span style={{ color: "var(--text)" }}>₹{REGISTRATION_VISITOR_FEE} per person</span>
             </p>
             <div className="p-3 rounded-xl mb-3" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
               <div className="text-xs mb-1" style={{ color: "var(--text-faint)" }}>Pay via UPI</div>
@@ -1843,13 +1862,29 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
                 <CopyUpiButton copied={copied} onCopy={copyUpi} />
               </div>
             </div>
-            <IconField
-              icon="format"
-              label="Payment amount made (₹)"
-              type="number"
-              value={form.paymentAmount}
-              onChange={(e) => setForm({ ...form, paymentAmount: e.target.value })}
-            />
+            <div className="p-3 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
+              <div className="text-xs mb-2" style={{ color: "var(--text-faint)" }}>Total amount to pay</div>
+              {form.participantType ? (
+                <>
+                  <div className="flex items-center justify-between text-xs mb-1" style={{ color: "var(--text-dim)" }}>
+                    <span>You ({form.participantType === "visitor" ? "Visitor" : "Player"})</span>
+                    <span>₹{participantFee}</span>
+                  </div>
+                  {visitorCount > 0 && (
+                    <div className="flex items-center justify-between text-xs mb-1" style={{ color: "var(--text-dim)" }}>
+                      <span>{visitorCount} visitor{visitorCount === 1 ? "" : "s"} × ₹{REGISTRATION_VISITOR_FEE}</span>
+                      <span>₹{visitorCount * REGISTRATION_VISITOR_FEE}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+                    <span className="text-sm font-semibold">Total</span>
+                    <span className="text-lg font-bold" style={{ color: "var(--accent-ink)" }}>₹{totalDue}</span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs" style={{ color: "var(--text-faint)" }}>Select Player or Visitor above to see your total.</p>
+              )}
+            </div>
           </div>
 
           <div className="p-4 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -2838,6 +2873,7 @@ function AdminRegistrations({ registrations, onSetStatus }) {
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Blader name</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Phone</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Age</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Type</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Products?</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Visitor</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Paid (₹)</th>
@@ -2853,6 +2889,7 @@ function AdminRegistrations({ registrations, onSetStatus }) {
                   <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{r.bladerName}</td>
                   <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{r.phone}</td>
                   <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{ageLabel(r.age)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{r.participantType === "visitor" ? "Visitor" : "Player"}</td>
                   <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{r.hasProducts ? "Yes" : "No"}</td>
                   <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>
                     {r.hasVisitor ? r.visitorNames?.join(", ") || "Yes" : "No"}
