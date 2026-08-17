@@ -3032,6 +3032,85 @@ function AdminPlayers({ players, seasonTotals, viewingSeason, legacyLeaderboardR
 // upserts one eventScores doc on blur; the Total column is the same
 // computed sum shown on the public leaderboard, so it's obvious in real
 // time whether a cell's edit landed.
+// Paste "Name<TAB>Points" (one blader per line) and bulk-fill one event
+// column at once, instead of clicking into every cell — mainly for
+// backfilling a past event's results in one go. Names that don't match an
+// existing player are created on the fly.
+function PasteScoresForEvent({ players, events, fireToast }) {
+  const [eventId, setEventId] = useState(events[0]?.id || "");
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const parsed = text
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => {
+      const [name, pts] = line.split("\t");
+      return { name: (name || "").trim(), points: parseInt((pts || "").trim(), 10) };
+    })
+    .filter((r) => r.name && !Number.isNaN(r.points));
+
+  const apply = async () => {
+    if (!eventId || parsed.length === 0) return;
+    setBusy(true);
+    try {
+      let created = 0;
+      for (const row of parsed) {
+        let player = players.find((p) => p.name.trim().toLowerCase() === row.name.toLowerCase());
+        if (!player) {
+          const ref = await createPlayer({ name: row.name, region: "" });
+          player = { id: ref.id };
+          created += 1;
+        }
+        await setEventScore(player.id, eventId, row.points);
+      }
+      fireToast(`Scored ${parsed.length} bladers${created ? ` · added ${created} new` : ""}`);
+      setText("");
+    } catch (err) {
+      console.error("paste scores failed", err);
+      fireToast("Couldn't save those scores — please try again");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="p-4 rounded-2xl mb-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <h3 className="font-semibold text-sm mb-2">Paste scores for one event</h3>
+      <p className="text-xs mb-3" style={{ color: "var(--text-faint)" }}>
+        One blader per line, name and points separated by a tab — e.g. copy two columns straight
+        out of a spreadsheet. Names that don't match an existing blader are added automatically.
+      </p>
+      <select
+        value={eventId}
+        onChange={(e) => setEventId(e.target.value)}
+        className="w-full px-3 py-2 rounded-lg text-sm outline-none mb-2"
+        style={fieldStyle()}
+      >
+        {events.map((ev) => (
+          <option key={ev.id} value={ev.id}>{ev.name}</option>
+        ))}
+      </select>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={6}
+        placeholder={"TENDO_PEIN\t110\nShadowo9\t70"}
+        className="w-full px-3 py-2 rounded-lg text-sm outline-none mb-2"
+        style={{ ...fieldStyle(), resize: "vertical", fontFamily: "'JetBrains Mono',monospace" }}
+      />
+      <button
+        disabled={busy || !eventId || parsed.length === 0}
+        onClick={apply}
+        className="tap px-4 py-2 rounded-full text-sm font-semibold"
+        style={{ background: "var(--accent2)", color: "#0A0D18", opacity: busy || !eventId || parsed.length === 0 ? 0.5 : 1 }}
+      >
+        {busy ? "Saving…" : parsed.length > 0 ? `Save ${parsed.length} scores` : "Save scores"}
+      </button>
+    </div>
+  );
+}
+
 function AdminEventScores({ players, events, eventScores, viewingSeason, seasonTotals, fireToast }) {
   const scoreByKey = new Map(eventScores.map((s) => [`${s.playerId}_${s.eventId}`, s.points]));
 
@@ -3052,15 +3131,16 @@ function AdminEventScores({ players, events, eventScores, viewingSeason, seasonT
       </p>
     );
   }
-  if (players.length === 0) {
-    return (
-      <p className="text-sm" style={{ color: "var(--text-faint)" }}>
-        No bladers yet — add them in the Players tab first.
-      </p>
-    );
-  }
 
   return (
+    <div>
+      <PasteScoresForEvent players={players} events={events} fireToast={fireToast} />
+      {players.length === 0 ? (
+        <p className="text-sm" style={{ color: "var(--text-faint)" }}>
+          No bladers yet — paste scores above (new names are added automatically) or add them in
+          the Players tab first.
+        </p>
+      ) : (
     <div className="rounded-2xl overflow-x-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
       <table className="text-sm" style={{ borderCollapse: "collapse", width: "100%" }}>
         <thead>
@@ -3106,6 +3186,8 @@ function AdminEventScores({ players, events, eventScores, viewingSeason, seasonT
           ))}
         </tbody>
       </table>
+    </div>
+      )}
     </div>
   );
 }
