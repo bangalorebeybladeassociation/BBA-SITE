@@ -750,6 +750,7 @@ export default function App() {
           --danger: #D8332A;
         }
         @keyframes blade-spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+        @keyframes bey-wobble { 0%,100% { transform: rotate(-22deg);} 50% { transform: rotate(22deg);} }
         @keyframes toast-in { from { opacity:0; transform: translate(-50%,12px);} to {opacity:1; transform: translate(-50%,0);} }
         @keyframes pop-in { from { opacity:0; transform: scale(0.7);} to {opacity:1; transform: scale(1);} }
         @keyframes auth-in { from { opacity:0; transform: translateY(14px);} to {opacity:1; transform: translateY(0);} }

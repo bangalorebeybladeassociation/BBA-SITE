@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useAuth } from "../auth/context";
 import { goAuth } from "../lib/authRoute";
 import { firebaseReady } from "../lib/firebase";
+import beybladeImg from "../assets/beyblade.png";
+import bbaLogo from "../assets/bba-logo.png";
 
 const EASE = "cubic-bezier(0.32,0.72,0,1)";
 
@@ -88,9 +90,26 @@ export default function AuthPage({ mode, next, onClose }) {
           animation: `auth-in 420ms ${EASE}`,
         }}
       >
-        <h1 className="disp text-2xl font-bold mb-1 text-center">
-          {isSignup ? "Create account" : "Sign in"}
-        </h1>
+        <div className="flex justify-center mb-4">
+          <img
+            src={beybladeImg}
+            alt=""
+            draggable="false"
+            style={{ width: 64, height: 64, animation: "bey-wobble 2.6s ease-in-out infinite", filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.4))" }}
+          />
+        </div>
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <div style={{ width: 22, height: 22, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
+            <img
+              src={bbaLogo}
+              alt="Bangalore Beyblade Association"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </div>
+          <h1 className="disp text-2xl font-bold text-center">
+            {isSignup ? "Create account" : "Sign in"}
+          </h1>
+        </div>
         <p className="text-sm mb-6 text-center" style={{ color: "var(--text-faint)" }}>
           {isSignup ? "Join the Bangalore Beyblade Association." : "Welcome back, blader."}
         </p>
