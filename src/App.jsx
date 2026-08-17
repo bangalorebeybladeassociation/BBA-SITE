@@ -1002,9 +1002,23 @@ export default function App() {
             <Reveal key={t.id} delay={i * 80} className="relative mb-10 last:mb-0">
               <div
                 className="absolute rounded-full"
-                style={{ left: -37, top: 6, width: 14, height: 14, background: t.accent || "#FF4425", boxShadow: `0 0 0 4px var(--bg)` }}
+                style={{
+                  left: -37,
+                  top: 6,
+                  width: 14,
+                  height: 14,
+                  background: t.status === "upcoming" ? t.accent || "#FF4425" : "var(--text-faint)",
+                  boxShadow: `0 0 0 4px var(--bg)`,
+                }}
               />
-              <div className="lift p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+              <div
+                className="lift p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-4"
+                style={{
+                  background: t.status === "upcoming" ? "var(--surface)" : "var(--bg)",
+                  border: `1px solid ${t.status === "upcoming" ? "var(--border)" : "var(--border-strong)"}`,
+                  opacity: t.status === "upcoming" ? 1 : 0.7,
+                }}
+              >
                 <div
                   className="rounded-xl shrink-0 flex items-center justify-center"
                   style={{ width: 64, height: 64, background: "var(--border)" }}
