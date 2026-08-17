@@ -1025,6 +1025,7 @@ export default function App() {
                   </div>
                   <p className="text-sm mt-1" style={{ color: "var(--text-dim)" }}>{formatEventDate(t.date)} · {t.venue}</p>
                   <p className="text-sm" style={{ color: "var(--text-faint)" }}>{t.format}</p>
+                  <PrizeSummary prizes={t.prizes} ageCategories={t.ageCategories} />
                 </div>
                 <div className="flex gap-2 shrink-0">
                   {t.status === "upcoming" && (
@@ -2324,6 +2325,12 @@ function toggleArrayValue(arr, value, include) {
   return include ? [...arr, value] : arr.filter((v) => v !== value);
 }
 
+const AGE_CATEGORY_LABELS = { under13: "Under 13", "13plus": "13+" };
+const PRIZE_PLACES = [["first", "1st"], ["second", "2nd"], ["third", "3rd"]];
+const emptyPrizePlace = () => ({ amount: "", item: "" });
+const emptyCategoryPrizes = () => ({ first: emptyPrizePlace(), second: emptyPrizePlace(), third: emptyPrizePlace() });
+const emptyPrizes = () => ({ under13: emptyCategoryPrizes(), "13plus": emptyCategoryPrizes() });
+
 /* ---------- live preview — mirrors the real timeline card so admins
    see exactly what they're publishing as they type ---------- */
 function AgeBadge({ ageCategories }) {
@@ -2336,10 +2343,67 @@ function AgeBadge({ ageCategories }) {
           className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
           style={{ background: "#FFC2401A", color: "var(--gold)" }}
         >
-          {c === "under13" ? "Under 13" : "13+"}
+          {AGE_CATEGORY_LABELS[c]}
         </span>
       ))}
     </>
+  );
+}
+
+// Renders "1st ₹2000 Trophy · 2nd ₹1000 Medal" per age category — skips
+// categories/places with nothing filled in, so a half-empty prize table
+// doesn't show up as a row of bare colons.
+function PrizeSummary({ prizes, ageCategories, className = "text-sm mt-1" }) {
+  if (!prizes || !ageCategories?.length) return null;
+  const blocks = ageCategories
+    .map((cat) => {
+      const p = prizes[cat];
+      if (!p) return null;
+      const lines = PRIZE_PLACES.map(([key, label]) => {
+        const place = p[key];
+        if (!place || (!place.amount && !place.item)) return null;
+        return `${label} ${[place.amount, place.item].filter(Boolean).join(" ")}`;
+      }).filter(Boolean);
+      return lines.length ? { cat, lines } : null;
+    })
+    .filter(Boolean);
+  if (!blocks.length) return null;
+  return (
+    <div className={className}>
+      {blocks.map(({ cat, lines }) => (
+        <div key={cat} style={{ color: "var(--text-dim)" }}>
+          <span className="font-semibold" style={{ color: "var(--gold)" }}>{AGE_CATEGORY_LABELS[cat]}:</span>{" "}
+          {lines.join(" · ")}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PrizeFieldsBlock({ label, value, onChange }) {
+  return (
+    <div className="p-3 rounded-xl space-y-2" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
+      <span className="text-xs font-semibold" style={{ color: "var(--gold)" }}>{label} prizes</span>
+      {PRIZE_PLACES.map(([key, placeLabel]) => (
+        <div key={key} className="flex gap-2 items-center">
+          <span className="text-xs w-7 shrink-0" style={{ color: "var(--text-faint)" }}>{placeLabel}</span>
+          <input
+            placeholder="Amount, e.g. ₹2000"
+            value={value[key].amount}
+            onChange={(e) => onChange(key, "amount", e.target.value)}
+            className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg text-xs outline-none"
+            style={fieldStyle()}
+          />
+          <input
+            placeholder="Item, e.g. Trophy"
+            value={value[key].item}
+            onChange={(e) => onChange(key, "item", e.target.value)}
+            className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg text-xs outline-none"
+            style={fieldStyle()}
+          />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -2371,6 +2435,7 @@ function EventPreviewCard({ form }) {
           </div>
           <div className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>{formatEventDate(form.date) || "Date"} · {form.venue || "Venue"}</div>
           <div className="text-xs" style={{ color: "var(--text-faint)" }}>{form.format || "Format"}</div>
+          <PrizeSummary prizes={form.prizes} ageCategories={form.ageCategories} className="text-xs mt-1" />
         </div>
       </div>
     </div>
@@ -2498,9 +2563,20 @@ function AdminEvents({ events, fireToast }) {
     bracketUrl: "",
     accent: "var(--accent2)",
     ageCategories: [],
+    prizes: emptyPrizes(),
   };
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState(null);
+
+  const updatePrize = (cat, place, field, val) => {
+    setForm((f) => ({
+      ...f,
+      prizes: {
+        ...f.prizes,
+        [cat]: { ...f.prizes[cat], [place]: { ...f.prizes[cat][place], [field]: val } },
+      },
+    }));
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -2555,6 +2631,28 @@ function AdminEvents({ events, fireToast }) {
               />
             </div>
           </div>
+
+          {form.ageCategories.length > 0 && (
+            <div>
+              <span className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-faint)" }}>Prizes</span>
+              <div className="space-y-2">
+                {form.ageCategories.includes("under13") && (
+                  <PrizeFieldsBlock
+                    label="Under 13"
+                    value={form.prizes.under13}
+                    onChange={(place, field, val) => updatePrize("under13", place, field, val)}
+                  />
+                )}
+                {form.ageCategories.includes("13plus") && (
+                  <PrizeFieldsBlock
+                    label="13+"
+                    value={form.prizes["13plus"]}
+                    onChange={(place, field, val) => updatePrize("13plus", place, field, val)}
+                  />
+                )}
+              </div>
+            </div>
+          )}
 
           <div>
             <span className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-faint)" }}>Accent</span>
