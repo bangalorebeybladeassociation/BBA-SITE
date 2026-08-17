@@ -17,6 +17,7 @@ import {
   createLeaderboardEntry,
   updateLeaderboardEntry,
   deleteLeaderboardEntry,
+  replaceLeaderboard,
   listenRulebook,
   setRulebook,
   listenInstagramPosts,
@@ -2375,6 +2376,7 @@ function AdminEvents({ events, fireToast }) {
 }
 
 function AdminLeaderboard({ rows, fireToast }) {
+  const [subtab, setSubtab] = useState("manage");
   const empty = { name: "", region: "", points: "", wins: "", losses: "" };
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState(null);
@@ -2401,42 +2403,159 @@ function AdminLeaderboard({ rows, fireToast }) {
   };
 
   return (
-    <div className="grid md:grid-cols-2 gap-8">
-      <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-        <h3 className="font-semibold mb-1">{editingId ? "Edit standing" : "Add standing"}</h3>
-        <input placeholder="Blader name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-        <input placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-        <div className="flex gap-3">
-          <input placeholder="Points" type="number" value={form.points} onChange={(e) => setForm({ ...form, points: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-          <input placeholder="Wins" type="number" value={form.wins} onChange={(e) => setForm({ ...form, wins: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-          <input placeholder="Losses" type="number" value={form.losses} onChange={(e) => setForm({ ...form, losses: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-        </div>
-        <div className="flex gap-2">
-          <button type="submit" className="tap flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
-            {editingId ? "Save changes" : "Add"}
-          </button>
-          {editingId && (
-            <button type="button" onClick={() => { setForm(empty); setEditingId(null); }} className="tap px-4 rounded-full text-sm font-semibold" style={{ border: "1px solid #2A3050" }}>
-              Cancel
-            </button>
-          )}
-        </div>
-      </form>
-      <div className="space-y-2">
-        {rows.length === 0 && <p className="text-sm" style={{ color: "#7A8194" }}>No standings yet.</p>}
-        {rows.map((row) => (
-          <div key={row.id} className="p-3 rounded-xl flex items-center justify-between gap-2" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-            <div>
-              <div className="text-sm font-medium">{row.name}</div>
-              <div className="text-xs" style={{ color: "#7A8194" }}>{row.points} pts · {row.wins ?? 0}-{row.losses ?? 0}</div>
+    <div>
+      <TabStrip
+        tabs={[["manage", "Manage"], ["import", "Bulk Import"]]}
+        active={subtab}
+        onChange={setSubtab}
+      />
+      {subtab === "manage" && (
+        <div className="grid md:grid-cols-2 gap-8">
+          <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+            <h3 className="font-semibold mb-1">{editingId ? "Edit standing" : "Add standing"}</h3>
+            <input placeholder="Blader name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+            <input placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+            <div className="flex gap-3">
+              <input placeholder="Points" type="number" value={form.points} onChange={(e) => setForm({ ...form, points: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+              <input placeholder="Wins" type="number" value={form.wins} onChange={(e) => setForm({ ...form, wins: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+              <input placeholder="Losses" type="number" value={form.losses} onChange={(e) => setForm({ ...form, losses: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
             </div>
-            <div className="flex gap-2 shrink-0">
-              <button onClick={() => { setForm({ ...empty, ...row }); setEditingId(row.id); }} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid #2A3050", color: "#F4F2EC" }}>Edit</button>
-              <button onClick={() => deleteLeaderboardEntry(row.id)} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid #2A3050", color: "#FF6B5A" }}>Delete</button>
+            <div className="flex gap-2">
+              <button type="submit" className="tap flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ background: "#00E6C3", color: "#0A0D18" }}>
+                {editingId ? "Save changes" : "Add"}
+              </button>
+              {editingId && (
+                <button type="button" onClick={() => { setForm(empty); setEditingId(null); }} className="tap px-4 rounded-full text-sm font-semibold" style={{ border: "1px solid #2A3050" }}>
+                  Cancel
+                </button>
+              )}
             </div>
+          </form>
+          <div className="space-y-2">
+            {rows.length === 0 && <p className="text-sm" style={{ color: "#7A8194" }}>No standings yet.</p>}
+            {rows.map((row) => (
+              <div key={row.id} className="p-3 rounded-xl flex items-center justify-between gap-2" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+                <div>
+                  <div className="text-sm font-medium">{row.name}</div>
+                  <div className="text-xs" style={{ color: "#7A8194" }}>{row.points} pts · {row.wins ?? 0}-{row.losses ?? 0}</div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => { setForm({ ...empty, ...row }); setEditingId(row.id); }} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid #2A3050", color: "#F4F2EC" }}>Edit</button>
+                  <button onClick={() => deleteLeaderboardEntry(row.id)} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid #2A3050", color: "#FF6B5A" }}>Delete</button>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+      {subtab === "import" && <LeaderboardBulkImport currentCount={rows.length} fireToast={fireToast} />}
+    </div>
+  );
+}
+
+// Splits a pasted spreadsheet block (header row + one row per blader,
+// tab-separated — exactly what you get pasting from Sheets/Excel) and
+// pulls out just the Name and TOTAL columns by header text, since that's
+// all this app's leaderboard model tracks. Ignores per-event columns.
+function parseLeaderboardPaste(text) {
+  const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const headers = lines[0].split("\t").map((h) => h.trim().toLowerCase());
+  const nameIdx = headers.findIndex((h) => h.includes("name"));
+  const totalIdx = headers.findIndex((h) => h.includes("total"));
+  if (nameIdx === -1 || totalIdx === -1) return [];
+  return lines
+    .slice(1)
+    .map((line) => {
+      const cols = line.split("\t");
+      const name = (cols[nameIdx] || "").trim();
+      const points = parseInt((cols[totalIdx] || "0").trim(), 10) || 0;
+      return { name, points };
+    })
+    .filter((r) => r.name);
+}
+
+function LeaderboardBulkImport({ currentCount, fireToast }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const parsed = parseLeaderboardPaste(text);
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      await replaceLeaderboard(parsed.map((r) => ({ name: r.name, points: r.points, region: "", wins: 0, losses: 0 })));
+      fireToast(`Leaderboard replaced with ${parsed.length} bladers`);
+      setText("");
+      setConfirming(false);
+    } catch (err) {
+      console.error("replaceLeaderboard failed", err);
+      fireToast("Couldn't update the leaderboard — please try again");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl">
+      <p className="text-sm mb-4" style={{ color: "#9AA1B4" }}>
+        Paste a whole season sheet — header row plus one row per blader, copied straight from
+        Sheets/Excel. Only the <strong style={{ color: "#F4F2EC" }}>name</strong> and{" "}
+        <strong style={{ color: "#F4F2EC" }}>TOTAL</strong> columns are used, since this app tracks
+        overall points rather than per-event breakdowns. This{" "}
+        <strong style={{ color: "#F4F2EC" }}>replaces the entire current leaderboard</strong>.
+      </p>
+      <textarea
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setConfirming(false);
+        }}
+        rows={10}
+        placeholder="Paste the full sheet here, including the header row"
+        className="w-full px-4 py-3 rounded-xl text-sm outline-none mb-3"
+        style={{ ...fieldStyle(), resize: "vertical", fontFamily: "'JetBrains Mono',monospace" }}
+      />
+      {text && parsed.length === 0 && (
+        <p className="text-xs mb-4" style={{ color: "#FF6B5A" }}>
+          Couldn't find "Name" and "TOTAL" columns — make sure you pasted the header row too.
+        </p>
+      )}
+      {parsed.length > 0 && (
+        <>
+          <p className="text-sm mb-3" style={{ color: "#00E6C3" }}>
+            Parsed {parsed.length} bladers — this will replace all {currentCount} current standings.
+          </p>
+          {!confirming ? (
+            <button
+              onClick={() => setConfirming(true)}
+              className="tap px-5 py-2.5 rounded-full text-sm font-semibold"
+              style={{ background: "#FF4425", color: "#0A0D18" }}
+            >
+              Replace leaderboard
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs" style={{ color: "#FF9354" }}>Sure? This can't be undone.</span>
+              <button
+                disabled={busy}
+                onClick={run}
+                className="tap px-4 py-2 rounded-full text-xs font-semibold"
+                style={{ background: "#FF4425", color: "#0A0D18" }}
+              >
+                {busy ? "Replacing…" : "Confirm replace"}
+              </button>
+              <button
+                onClick={() => setConfirming(false)}
+                className="tap px-4 py-2 rounded-full text-xs font-semibold"
+                style={{ border: "1px solid #2A3050", color: "#9AA1B4" }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

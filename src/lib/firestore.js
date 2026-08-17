@@ -4,12 +4,14 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -122,6 +124,19 @@ export const createLeaderboardEntry = (data) =>
 export const updateLeaderboardEntry = (id, data) =>
   updateDoc(doc(db, "leaderboard", id), { ...data, updatedAt: serverTimestamp() });
 export const deleteLeaderboardEntry = (id) => deleteDoc(doc(db, "leaderboard", id));
+
+// Wipes the current standings and replaces them with a fresh set in one
+// atomic batch — used by the season bulk-import (paste a whole sheet at
+// once instead of re-entering every row by hand).
+export async function replaceLeaderboard(rows) {
+  const existing = await getDocs(collection(db, "leaderboard"));
+  const batch = writeBatch(db);
+  existing.forEach((d) => batch.delete(d.ref));
+  rows.forEach((row) => {
+    batch.set(doc(collection(db, "leaderboard")), { ...row, updatedAt: serverTimestamp() });
+  });
+  await batch.commit();
+}
 
 export function listenRulebook(cb) {
   return onSnapshot(
