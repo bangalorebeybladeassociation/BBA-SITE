@@ -318,3 +318,5 @@ export function listenAllRegistrations(cb) {
 
 export const setRegistrationStatus = (id, status) =>
   updateDoc(doc(db, "registrations", id), { status, updatedAt: serverTimestamp() });
+
+export const deleteRegistration = (id) => deleteDoc(doc(db, "registrations", id));

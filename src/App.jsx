@@ -41,6 +41,7 @@ import {
   createRegistration,
   listenAllRegistrations,
   setRegistrationStatus,
+  deleteRegistration,
 } from "./lib/firestore";
 
 /* ---------------------------------------------------------
@@ -1093,7 +1094,11 @@ export default function App() {
             registrations={allRegistrations}
             onSetRegistrationStatus={async (id, status) => {
               await setRegistrationStatus(id, status);
-              fireToast(status === "confirmed" ? "Registration confirmed" : "Registration updated");
+              fireToast(status === "confirmed" ? "Payment confirmed" : "Registration updated");
+            }}
+            onDeleteRegistration={async (id) => {
+              await deleteRegistration(id);
+              fireToast("Registration deleted");
             }}
             instagramPosts={instagramPosts}
           />
@@ -1970,6 +1975,36 @@ function fieldStyle() {
   return { background: "var(--bg)", border: "1px solid var(--border-strong)", color: "var(--text)" };
 }
 
+/* ---------- generic centered confirm popup, reused for destructive actions ---------- */
+function ConfirmModal({ title, message, confirmLabel = "Delete", busy, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
+      <div onClick={onCancel} className="absolute inset-0" style={{ background: "rgba(0,0,0,0.6)" }} />
+      <div className="relative w-full max-w-sm rounded-2xl p-6" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <h3 className="disp font-bold text-lg mb-1">{title}</h3>
+        <p className="text-sm mb-5" style={{ color: "var(--text-dim)" }}>{message}</p>
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="tap flex-1 py-2.5 rounded-full text-sm font-semibold"
+            style={{ border: "1px solid var(--border-strong)", color: "var(--text)" }}
+          >
+            Cancel
+          </button>
+          <button
+            disabled={busy}
+            onClick={onConfirm}
+            className="tap flex-1 py-2.5 rounded-full text-sm font-semibold"
+            style={{ background: "var(--danger)", color: "#fff", opacity: busy ? 0.6 : 1 }}
+          >
+            {busy ? "Deleting…" : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- buyer ---------- */
 function BuyerPanel({ products, onAdd, loaded }) {
   const [itemType, setItemType] = useState("All");
@@ -2247,6 +2282,7 @@ function AdminPanel({
   users,
   registrations,
   onSetRegistrationStatus,
+  onDeleteRegistration,
   instagramPosts,
 }) {
   const [tab, setTab] = useState("listings");
@@ -2270,7 +2306,7 @@ function AdminPanel({
       {tab === "roles" && <AdminRoles fireToast={fireToast} users={users} />}
       {tab === "events" && <AdminEvents events={events} season={season} fireToast={fireToast} />}
       {tab === "registrations" && (
-        <AdminRegistrations registrations={registrations} onSetStatus={onSetRegistrationStatus} />
+        <AdminRegistrations registrations={registrations} onSetStatus={onSetRegistrationStatus} onDelete={onDeleteRegistration} />
       )}
       {tab === "leaderboard" && (
         <AdminLeaderboard
@@ -2836,7 +2872,7 @@ function EventPreviewCard({ form }) {
 function RegistrationStatusBadge({ status }) {
   const map = {
     pending: ["var(--gold)", "Pending"],
-    confirmed: ["var(--accent)", "Confirmed"],
+    confirmed: ["var(--accent)", "Payment Confirmed"],
   };
   const [color, label] = map[status] || map.pending;
   return (
@@ -2846,9 +2882,21 @@ function RegistrationStatusBadge({ status }) {
   );
 }
 
-function AdminRegistrations({ registrations, onSetStatus }) {
+const REGISTRATION_AGE_OPTIONS = [
+  { value: "9-12", label: "9–12" },
+  { value: "13-17", label: "13–17" },
+  { value: "18plus", label: "18+" },
+];
+
+function AdminRegistrations({ registrations, onSetStatus, onDelete }) {
   const [filter, setFilter] = useState("");
+  const [ageFilter, setAgeFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [productsFilter, setProductsFilter] = useState("");
+  const [visitorFilter, setVisitorFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [busyId, setBusyId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const ageLabel = (age) => (age === "9-12" ? "9–12" : age === "13-17" ? "13–17" : age === "18plus" ? "18+" : age || "—");
 
@@ -2862,6 +2910,11 @@ function AdminRegistrations({ registrations, onSetStatus }) {
         r.eventName?.toLowerCase().includes(q) ||
         r.phone?.toLowerCase().includes(q)
     )
+    .filter((r) => !ageFilter || r.age === ageFilter)
+    .filter((r) => !typeFilter || (r.participantType === "visitor" ? "visitor" : "player") === typeFilter)
+    .filter((r) => !productsFilter || (r.hasProducts ? "yes" : "no") === productsFilter)
+    .filter((r) => !visitorFilter || (r.hasVisitor ? "yes" : "no") === visitorFilter)
+    .filter((r) => !statusFilter || (r.status || "pending") === statusFilter)
     .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
 
   const confirm = async (r) => {
@@ -2873,15 +2926,54 @@ function AdminRegistrations({ registrations, onSetStatus }) {
     }
   };
 
+  const remove = async () => {
+    if (!deleteTarget) return;
+    setBusyId(deleteTarget.id);
+    try {
+      await onDelete(deleteTarget.id);
+      setDeleteTarget(null);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div>
-      <input
-        placeholder="Filter by name, phone, or event"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        className="w-full max-w-sm px-3 py-2 rounded-lg text-sm outline-none mb-5"
-        style={fieldStyle()}
-      />
+      <div className="flex gap-2 flex-wrap mb-5">
+        <input
+          placeholder="Filter by name, phone, or event"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="w-full max-w-sm px-3 py-2 rounded-lg text-sm outline-none"
+          style={fieldStyle()}
+        />
+        <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value)} className="px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
+          <option value="">All ages</option>
+          {REGISTRATION_AGE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
+          <option value="">All types</option>
+          <option value="player">Player</option>
+          <option value="visitor">Visitor</option>
+        </select>
+        <select value={productsFilter} onChange={(e) => setProductsFilter(e.target.value)} className="px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
+          <option value="">Products: all</option>
+          <option value="yes">Has products</option>
+          <option value="no">No products</option>
+        </select>
+        <select value={visitorFilter} onChange={(e) => setVisitorFilter(e.target.value)} className="px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
+          <option value="">Visitor: all</option>
+          <option value="yes">Has visitor</option>
+          <option value="no">No visitor</option>
+        </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
+          <option value="">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="confirmed">Payment Confirmed</option>
+        </select>
+      </div>
       {shown.length === 0 ? (
         <p className="text-sm" style={{ color: "var(--text-faint)" }}>
           {registrations.length === 0 ? "No registrations yet." : "No matches."}
@@ -2891,6 +2983,7 @@ function AdminRegistrations({ registrations, onSetStatus }) {
           <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ color: "var(--text-faint)", textAlign: "left" }}>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Registered</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Event</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Participant</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Blader name</th>
@@ -2907,6 +3000,7 @@ function AdminRegistrations({ registrations, onSetStatus }) {
             <tbody>
               {shown.map((r) => (
                 <tr key={r.id} style={{ borderTop: "1px solid var(--border)" }}>
+                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{formatLastLogin(r.createdAt)}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{r.eventName}</td>
                   <td className="px-4 py-3 font-medium whitespace-nowrap">{r.participantName}</td>
                   <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{r.bladerName}</td>
@@ -2925,22 +3019,42 @@ function AdminRegistrations({ registrations, onSetStatus }) {
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap"><RegistrationStatusBadge status={r.status} /></td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {r.status !== "confirmed" && (
+                    <div className="flex gap-1.5">
+                      {r.status !== "confirmed" && (
+                        <button
+                          disabled={busyId === r.id}
+                          onClick={() => confirm(r)}
+                          className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
+                          style={{ background: "var(--accent)", color: "#0A0D18" }}
+                        >
+                          Payment Confirmed
+                        </button>
+                      )}
                       <button
                         disabled={busyId === r.id}
-                        onClick={() => confirm(r)}
-                        className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
-                        style={{ background: "var(--accent)", color: "#0A0D18" }}
+                        onClick={() => setDeleteTarget(r)}
+                        className="tap shrink-0 flex items-center justify-center rounded-full"
+                        style={{ width: 30, height: 30, border: "1px solid var(--border-strong)", color: "var(--danger)" }}
+                        aria-label="Delete registration"
                       >
-                        Mark confirmed
+                        <Icon name="remove" size={13} />
                       </button>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete this registration?"
+          message={`This permanently removes ${deleteTarget.participantName}'s registration for ${deleteTarget.eventName}. This can't be undone.`}
+          busy={busyId === deleteTarget.id}
+          onConfirm={remove}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

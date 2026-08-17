@@ -149,7 +149,7 @@ service cloud.firestore {
       // "confirmed" once the UPI payment is verified) — the registrant's
       // own submitted details are immutable.
       allow update: if isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
   }
 }
