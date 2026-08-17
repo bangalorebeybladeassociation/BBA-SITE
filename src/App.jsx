@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Lenis from "lenis";
 import beybladeImg from "./assets/beyblade.png";
 import bbaLogo from "./assets/bba-logo.png";
@@ -15,11 +15,12 @@ import {
   updateEvent,
   deleteEvent,
   listenLeaderboard,
-  createLeaderboardEntry,
-  updateLeaderboardEntry,
-  deleteLeaderboardEntry,
-  replaceLeaderboard,
-  bulkUpdateLeaderboardScores,
+  listenPlayers,
+  createPlayer,
+  updatePlayer,
+  deletePlayer,
+  listenEventScores,
+  setEventScore,
   listenSeason,
   setSeason,
   listenMemberCount,
@@ -308,13 +309,65 @@ function useEvents() {
   return [...events].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 }
 
-function useLeaderboardRows() {
+// Legacy flat leaderboard — no longer used for the real display, only read
+// once by the "Migrate" button in the Players admin tab.
+function useLegacyLeaderboardRows() {
   const [rows, setRows] = useState([]);
   useEffect(() => {
     if (!firebaseReady) return;
     return listenLeaderboard(setRows);
   }, []);
-  return [...rows].sort((a, b) => (b.points || 0) - (a.points || 0));
+  return rows;
+}
+
+function usePlayers() {
+  const [players, setPlayers] = useState([]);
+  useEffect(() => {
+    if (!firebaseReady) return;
+    return listenPlayers(setPlayers);
+  }, []);
+  return players;
+}
+
+function useEventScores() {
+  const [scores, setScores] = useState([]);
+  useEffect(() => {
+    if (!firebaseReady) return;
+    return listenEventScores(setScores);
+  }, []);
+  return scores;
+}
+
+// The real leaderboard: for every (player, season) with any points, sum
+// that player's eventScores across that season's events, plus their legacy
+// baselinePoints if it was recorded for that season. Produces the same row
+// shape the old flat leaderboard collection did ({id, name, region, points,
+// season}) so ranking/display code downstream doesn't need to change.
+function useComputedLeaderboard(players, eventScores, events) {
+  return useMemo(() => {
+    const eventSeasonById = new Map(events.map((e) => [e.id, e.season ?? 1]));
+    const totals = new Map(); // `${playerId}::${season}` -> points
+    for (const s of eventScores) {
+      const season = eventSeasonById.get(s.eventId);
+      if (season == null) continue; // score for a since-deleted event
+      const key = `${s.playerId}::${season}`;
+      totals.set(key, (totals.get(key) || 0) + (Number(s.points) || 0));
+    }
+    for (const p of players) {
+      if (p.baselinePoints && p.baselineSeason != null) {
+        const key = `${p.id}::${p.baselineSeason}`;
+        totals.set(key, (totals.get(key) || 0) + Number(p.baselinePoints));
+      }
+    }
+    const rows = [];
+    for (const [key, points] of totals) {
+      const [playerId, seasonStr] = key.split("::");
+      const player = players.find((p) => p.id === playerId);
+      if (!player || points <= 0) continue;
+      rows.push({ id: key, playerId, name: player.name, region: player.region || "", points, season: Number(seasonStr) });
+    }
+    return rows.sort((a, b) => b.points - a.points);
+  }, [players, eventScores, events]);
 }
 
 function useSeason() {
@@ -569,7 +622,10 @@ export default function App() {
   const [page, setPage] = useState(readPage);
 
   const events = useEvents();
-  const leaderboard = useLeaderboardRows();
+  const players = usePlayers();
+  const eventScores = useEventScores();
+  const legacyLeaderboardRows = useLegacyLeaderboardRows();
+  const leaderboard = useComputedLeaderboard(players, eventScores, events);
   const season = useSeason();
   const memberCount = useMemberCount();
   const rulebookText = useRulebookText();
@@ -829,6 +885,9 @@ export default function App() {
               fireToast(status === "approved" ? "Listing approved" : "Listing rejected");
             }}
             events={events}
+            players={players}
+            eventScores={eventScores}
+            legacyLeaderboardRows={legacyLeaderboardRows}
             leaderboard={leaderboard}
             season={season}
             onChangeSeason={async (n) => {
@@ -1997,6 +2056,9 @@ function AdminPanel({
   products,
   onDecide,
   events,
+  players,
+  eventScores,
+  legacyLeaderboardRows,
   leaderboard,
   season,
   onChangeSeason,
@@ -2026,12 +2088,21 @@ function AdminPanel({
       />
       {tab === "listings" && <AdminListings products={products} onDecide={onDecide} />}
       {tab === "roles" && <AdminRoles fireToast={fireToast} users={users} />}
-      {tab === "events" && <AdminEvents events={events} fireToast={fireToast} />}
+      {tab === "events" && <AdminEvents events={events} season={season} fireToast={fireToast} />}
       {tab === "registrations" && (
         <AdminRegistrations registrations={registrations} onSetStatus={onSetRegistrationStatus} />
       )}
       {tab === "leaderboard" && (
-        <AdminLeaderboard rows={leaderboard} season={season} onChangeSeason={onChangeSeason} fireToast={fireToast} />
+        <AdminLeaderboard
+          events={events}
+          players={players}
+          eventScores={eventScores}
+          legacyLeaderboardRows={legacyLeaderboardRows}
+          computedRows={leaderboard}
+          season={season}
+          onChangeSeason={onChangeSeason}
+          fireToast={fireToast}
+        />
       )}
       {tab === "rulebook" && <AdminRulebook text={rulebookText} fireToast={fireToast} />}
       {tab === "instagram" && <AdminInstagram posts={instagramPosts} fireToast={fireToast} />}
@@ -2590,7 +2661,7 @@ function AdminRegistrations({ registrations, onSetStatus }) {
   );
 }
 
-function AdminEvents({ events, fireToast }) {
+function AdminEvents({ events, season, fireToast }) {
   const empty = {
     name: "",
     date: "",
@@ -2601,6 +2672,7 @@ function AdminEvents({ events, fireToast }) {
     accent: "var(--accent2)",
     ageCategories: [],
     prizes: emptyPrizes(),
+    season,
   };
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState(null);
@@ -2643,6 +2715,20 @@ function AdminEvents({ events, fireToast }) {
           <IconField icon="pin" label="Venue" placeholder="e.g. Whitefield Community Hall" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} />
           <IconField icon="format" label="Format" placeholder="e.g. Double Elimination · 27 Bladers" value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })} />
           <IconField icon="link" label="Bracket URL" placeholder="https://challonge.com/…" value={form.bracketUrl} onChange={(e) => setForm({ ...form, bracketUrl: e.target.value })} />
+
+          <div>
+            <span className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-faint)" }}>Season</span>
+            <input
+              type="number"
+              value={form.season}
+              onChange={(e) => setForm({ ...form, season: parseInt(e.target.value, 10) || 1 })}
+              className="w-24 px-3 py-2 rounded-lg text-sm outline-none"
+              style={fieldStyle()}
+            />
+            <p className="text-xs mt-1" style={{ color: "var(--text-faint)" }}>
+              Which season's leaderboard this event's scores count toward.
+            </p>
+          </div>
 
           <div>
             <span className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-faint)" }}>Status</span>
@@ -2739,7 +2825,7 @@ function AdminEvents({ events, fireToast }) {
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
-              <button onClick={() => { setForm({ ...empty, ...ev }); setEditingId(ev.id); }} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid var(--border-strong)", color: "var(--text)" }}>Edit</button>
+              <button onClick={() => { setForm({ ...empty, ...ev, season: ev.season ?? 1 }); setEditingId(ev.id); }} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid var(--border-strong)", color: "var(--text)" }}>Edit</button>
               <button onClick={() => deleteEvent(ev.id)} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid var(--border-strong)", color: "var(--danger)" }}>Delete</button>
             </div>
           </div>
@@ -2749,42 +2835,20 @@ function AdminEvents({ events, fireToast }) {
   );
 }
 
-function AdminLeaderboard({ rows, season, onChangeSeason, fireToast }) {
-  const [subtab, setSubtab] = useState("manage");
+function AdminLeaderboard({ events, players, eventScores, legacyLeaderboardRows, computedRows, season, onChangeSeason, fireToast }) {
+  const [subtab, setSubtab] = useState("players");
   const [viewingSeason, setViewingSeason] = useState(season);
   const [newSeasonInput, setNewSeasonInput] = useState(String(season + 1));
-  const empty = { name: "", region: "", points: "", wins: "", losses: "" };
-  const [form, setForm] = useState(empty);
-  const [editingId, setEditingId] = useState(null);
 
   // Seasons with data plus whatever's currently live, so a fresh season with
   // no standings yet still shows up as a tab.
   const seasonNumbers = Array.from(
-    new Set([...rows.map((r) => r.season ?? 1), season])
+    new Set([...events.map((e) => e.season ?? 1), ...computedRows.map((r) => r.season), season])
   ).sort((a, b) => b - a);
-  const viewingRows = rows.filter((r) => (r.season ?? 1) === viewingSeason);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!form.name) return;
-    const payload = {
-      name: form.name,
-      region: form.region,
-      points: Number(form.points) || 0,
-      wins: Number(form.wins) || 0,
-      losses: Number(form.losses) || 0,
-      season: viewingSeason,
-    };
-    if (editingId) {
-      await updateLeaderboardEntry(editingId, payload);
-      fireToast("Standing updated");
-    } else {
-      await createLeaderboardEntry(payload);
-      fireToast("Standing added");
-    }
-    setForm(empty);
-    setEditingId(null);
-  };
+  const seasonEvents = events.filter((e) => (e.season ?? 1) === viewingSeason);
+  const seasonTotals = new Map(
+    computedRows.filter((r) => r.season === viewingSeason).map((r) => [r.playerId, r.points])
+  );
 
   const startNewSeason = async () => {
     const n = parseInt(newSeasonInput, 10);
@@ -2820,298 +2884,228 @@ function AdminLeaderboard({ rows, season, onChangeSeason, fireToast }) {
         onChange={setViewingSeason}
       />
       <TabStrip
-        tabs={[["manage", "Manage"], ["edit", "Bulk Edit"], ["import", "Bulk Import"]]}
+        tabs={[["players", "Players"], ["scores", "Scores"]]}
         active={subtab}
         onChange={setSubtab}
       />
-      {subtab === "manage" && (
-        <div className="grid md:grid-cols-2 gap-8">
-          <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-            <h3 className="font-semibold mb-1">{editingId ? "Edit standing" : `Add standing — Season ${viewingSeason}`}</h3>
-            <input placeholder="Blader name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-            <input placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-            <div className="flex gap-3">
-              <input placeholder="Points" type="number" value={form.points} onChange={(e) => setForm({ ...form, points: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-              <input placeholder="Wins" type="number" value={form.wins} onChange={(e) => setForm({ ...form, wins: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-              <input placeholder="Losses" type="number" value={form.losses} onChange={(e) => setForm({ ...form, losses: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
-            </div>
-            <div className="flex gap-2">
-              <button type="submit" className="tap flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ background: "var(--accent)", color: "#0A0D18" }}>
-                {editingId ? "Save changes" : "Add"}
-              </button>
-              {editingId && (
-                <button type="button" onClick={() => { setForm(empty); setEditingId(null); }} className="tap px-4 rounded-full text-sm font-semibold" style={{ border: "1px solid var(--border-strong)" }}>
-                  Cancel
-                </button>
-              )}
-            </div>
-          </form>
-          <div className="space-y-2">
-            {viewingRows.length === 0 && <p className="text-sm" style={{ color: "var(--text-faint)" }}>No standings yet.</p>}
-            {viewingRows.map((row) => (
-              <div key={row.id} className="p-3 rounded-xl flex items-center justify-between gap-2" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                <div>
-                  <div className="text-sm font-medium">{row.name}</div>
-                  <div className="text-xs" style={{ color: "var(--text-faint)" }}>{row.points} pts · {row.wins ?? 0}-{row.losses ?? 0}</div>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <button onClick={() => { setForm({ ...empty, ...row }); setEditingId(row.id); }} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid var(--border-strong)", color: "var(--text)" }}>Edit</button>
-                  <button onClick={() => deleteLeaderboardEntry(row.id)} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid var(--border-strong)", color: "var(--danger)" }}>Delete</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {subtab === "players" && (
+        <AdminPlayers
+          players={players}
+          seasonTotals={seasonTotals}
+          viewingSeason={viewingSeason}
+          legacyLeaderboardRows={legacyLeaderboardRows}
+          fireToast={fireToast}
+        />
       )}
-      {subtab === "edit" && (
-        <LeaderboardBulkEdit rows={viewingRows} season={viewingSeason} fireToast={fireToast} />
-      )}
-      {subtab === "import" && (
-        <LeaderboardBulkImport currentCount={viewingRows.length} season={viewingSeason} fireToast={fireToast} />
+      {subtab === "scores" && (
+        <AdminEventScores
+          players={players}
+          events={seasonEvents}
+          eventScores={eventScores}
+          viewingSeason={viewingSeason}
+          seasonTotals={seasonTotals}
+          fireToast={fireToast}
+        />
       )}
     </div>
   );
 }
 
-// Splits a pasted spreadsheet block (header row + one row per blader,
-// tab-separated — exactly what you get pasting from Sheets/Excel) and
-// pulls out just the Name and TOTAL columns by header text, since that's
-// all this app's leaderboard model tracks. Ignores per-event columns.
-function parseLeaderboardPaste(text) {
-  const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const headers = lines[0].split("\t").map((h) => h.trim().toLowerCase());
-  const nameIdx = headers.findIndex((h) => h.includes("name"));
-  const totalIdx = headers.findIndex((h) => h.includes("total"));
-  if (nameIdx === -1 || totalIdx === -1) return [];
-  return lines
-    .slice(1)
-    .map((line) => {
-      const cols = line.split("\t");
-      const name = (cols[nameIdx] || "").trim();
-      const points = parseInt((cols[totalIdx] || "0").trim(), 10) || 0;
-      return { name, points };
-    })
-    .filter((r) => r.name);
-}
-
-// Updates existing standings' points in place from a pasted sheet, without
-// touching region/wins/losses and without wiping out anyone not mentioned —
-// unlike Bulk Import, which replaces the whole season wholesale.
-function LeaderboardBulkEdit({ rows, season, fireToast }) {
-  const [text, setText] = useState("");
+function AdminPlayers({ players, seasonTotals, viewingSeason, legacyLeaderboardRows, fireToast }) {
+  const emptyForm = { name: "", region: "" };
+  const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const parsed = parseLeaderboardPaste(text);
+  const [migrating, setMigrating] = useState(false);
 
-  const matches = [];
-  const creates = [];
-  parsed.forEach((p) => {
-    const existing = rows.find((r) => r.name.trim().toLowerCase() === p.name.trim().toLowerCase());
-    if (existing) {
-      matches.push({ id: existing.id, name: existing.name, oldPoints: existing.points, newPoints: p.points });
-    } else {
-      creates.push(p);
-    }
-  });
-  const changedCount = matches.filter((m) => m.oldPoints !== m.newPoints).length;
-
-  const run = async () => {
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return;
     setBusy(true);
     try {
-      await bulkUpdateLeaderboardScores(
-        matches.map(({ id, newPoints }) => ({ id, points: newPoints })),
-        creates,
-        season
+      if (editingId) {
+        await updatePlayer(editingId, { name: form.name.trim(), region: form.region.trim() });
+        fireToast("Blader updated");
+      } else {
+        await createPlayer({ name: form.name.trim(), region: form.region.trim() });
+        fireToast("Blader added");
+      }
+      setForm(emptyForm);
+      setEditingId(null);
+    } catch (err) {
+      console.error("player save failed", err);
+      fireToast("Couldn't save — please try again");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (player) => {
+    try {
+      await deletePlayer(player.id);
+      fireToast("Blader removed");
+    } catch (err) {
+      console.error("deletePlayer failed", err);
+      fireToast("Couldn't remove that blader — please try again");
+    }
+  };
+
+  // One-time bridge from the old paste-a-spreadsheet leaderboard: brings
+  // each old name in as a real player, carrying its old total over as a
+  // baseline for whichever season it was recorded under. Only offered
+  // while the roster is still empty, so it can't be run twice by accident.
+  const migrate = async () => {
+    setMigrating(true);
+    try {
+      await Promise.all(
+        legacyLeaderboardRows.map((row) =>
+          createPlayer({
+            name: row.name,
+            region: row.region || "",
+            baselinePoints: row.points || 0,
+            baselineSeason: row.season ?? 1,
+          })
+        )
       );
-      fireToast(`Updated ${changedCount} score${changedCount === 1 ? "" : "s"}${creates.length ? ` · added ${creates.length}` : ""}`);
-      setText("");
-      setConfirming(false);
+      fireToast(`Migrated ${legacyLeaderboardRows.length} bladers from the old leaderboard`);
     } catch (err) {
-      console.error("bulkUpdateLeaderboardScores failed", err);
-      fireToast("Couldn't update scores — please try again");
+      console.error("migrate failed", err);
+      fireToast("Migration failed — please try again");
     } finally {
-      setBusy(false);
+      setMigrating(false);
     }
   };
 
   return (
-    <div className="max-w-2xl">
-      <p className="text-sm mb-4" style={{ color: "var(--text-dim)" }}>
-        Paste updated scores — same header-row-plus-rows format as Bulk Import. Names that match an
-        existing Season {season} standing get just their{" "}
-        <strong style={{ color: "var(--text)" }}>points</strong> updated (region/wins/losses stay as
-        they are); names that don't match are added as new standings. Anyone not mentioned in the
-        paste is left untouched.
-      </p>
-      <textarea
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          setConfirming(false);
-        }}
-        rows={10}
-        placeholder="Paste the updated sheet here, including the header row"
-        className="w-full px-4 py-3 rounded-xl text-sm outline-none mb-3"
-        style={{ ...fieldStyle(), resize: "vertical", fontFamily: "'JetBrains Mono',monospace" }}
-      />
-      {text && parsed.length === 0 && (
-        <p className="text-xs mb-4" style={{ color: "var(--danger)" }}>
-          Couldn't find "Name" and "TOTAL" columns — make sure you pasted the header row too.
-        </p>
-      )}
-      {parsed.length > 0 && (
-        <>
-          <div className="rounded-xl overflow-hidden mb-3" style={{ border: "1px solid var(--border)" }}>
-            {matches.map((m) => (
-              <div
-                key={m.id}
-                className="flex items-center justify-between px-3 py-2 text-sm"
-                style={{ borderTop: "1px solid var(--border)" }}
-              >
-                <span>{m.name}</span>
-                <span
-                  style={{
-                    fontFamily: "'JetBrains Mono',monospace",
-                    color: m.oldPoints === m.newPoints ? "var(--text-faint)" : "var(--accent-ink)",
-                  }}
-                >
-                  {m.oldPoints === m.newPoints ? `${m.oldPoints} (no change)` : `${m.oldPoints} → ${m.newPoints}`}
-                </span>
-              </div>
-            ))}
-            {creates.map((c, i) => (
-              <div
-                key={`new-${i}`}
-                className="flex items-center justify-between px-3 py-2 text-sm"
-                style={{ borderTop: "1px solid var(--border)" }}
-              >
-                <span>{c.name}</span>
-                <span style={{ fontFamily: "'JetBrains Mono',monospace", color: "var(--gold)" }}>new · {c.points}</span>
-              </div>
-            ))}
-          </div>
-          <p className="text-sm mb-3" style={{ color: "var(--text-dim)" }}>
-            {changedCount} score{changedCount === 1 ? "" : "s"} will change
-            {creates.length > 0 ? `, ${creates.length} new blader${creates.length === 1 ? "" : "s"} added.` : "."}
-          </p>
-          {!confirming ? (
-            <button
-              onClick={() => setConfirming(true)}
-              disabled={changedCount === 0 && creates.length === 0}
-              className="tap px-5 py-2.5 rounded-full text-sm font-semibold"
-              style={{ background: "var(--accent2)", color: "#0A0D18", opacity: changedCount === 0 && creates.length === 0 ? 0.5 : 1 }}
-            >
-              Apply updates
+    <div className="grid md:grid-cols-2 gap-8">
+      <div>
+        <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl mb-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <h3 className="font-semibold mb-1">{editingId ? "Edit blader" : "Add blader"}</h3>
+          <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+          <input placeholder="Region (optional)" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
+          <div className="flex gap-2">
+            <button disabled={busy} type="submit" className="tap flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ background: "var(--accent)", color: "#0A0D18" }}>
+              {editingId ? "Save changes" : "Add blader"}
             </button>
-          ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs" style={{ color: "var(--bronze)" }}>Sure? This can't be undone.</span>
-              <button
-                disabled={busy}
-                onClick={run}
-                className="tap px-4 py-2 rounded-full text-xs font-semibold"
-                style={{ background: "var(--accent2)", color: "#0A0D18" }}
-              >
-                {busy ? "Updating…" : "Confirm update"}
-              </button>
-              <button
-                onClick={() => setConfirming(false)}
-                className="tap px-4 py-2 rounded-full text-xs font-semibold"
-                style={{ border: "1px solid var(--border-strong)", color: "var(--text-dim)" }}
-              >
+            {editingId && (
+              <button type="button" onClick={() => { setForm(emptyForm); setEditingId(null); }} className="tap px-4 rounded-full text-sm font-semibold" style={{ border: "1px solid var(--border-strong)" }}>
                 Cancel
               </button>
+            )}
+          </div>
+        </form>
+        {players.length === 0 && legacyLeaderboardRows.length > 0 && (
+          <div className="p-4 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border-strong)" }}>
+            <p className="text-sm mb-3" style={{ color: "var(--text-dim)" }}>
+              Found {legacyLeaderboardRows.length} bladers from the old pasted leaderboard. Bring them
+              in as players — their old total becomes a starting baseline — so you can start scoring
+              them by event from here on.
+            </p>
+            <button disabled={migrating} onClick={migrate} className="tap px-4 py-2 rounded-full text-sm font-semibold" style={{ background: "var(--accent2)", color: "#0A0D18" }}>
+              {migrating ? "Migrating…" : `Migrate ${legacyLeaderboardRows.length} bladers`}
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="space-y-2">
+        {players.length === 0 && <p className="text-sm" style={{ color: "var(--text-faint)" }}>No bladers yet.</p>}
+        {players.map((p) => (
+          <div key={p.id} className="p-3 rounded-xl flex items-center justify-between gap-2" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <div>
+              <div className="text-sm font-medium">{p.name}</div>
+              <div className="text-xs" style={{ color: "var(--text-faint)" }}>
+                {p.region ? `${p.region} · ` : ""}Season {viewingSeason}: {seasonTotals.get(p.id) ?? 0} pts
+              </div>
             </div>
-          )}
-        </>
-      )}
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => { setForm({ name: p.name, region: p.region || "" }); setEditingId(p.id); }} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid var(--border-strong)", color: "var(--text)" }}>Edit</button>
+              <button onClick={() => remove(p)} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ border: "1px solid var(--border-strong)", color: "var(--danger)" }}>Remove</button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function LeaderboardBulkImport({ currentCount, season, fireToast }) {
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const parsed = parseLeaderboardPaste(text);
+// A player × event matrix — the actual place scores get entered. Each cell
+// upserts one eventScores doc on blur; the Total column is the same
+// computed sum shown on the public leaderboard, so it's obvious in real
+// time whether a cell's edit landed.
+function AdminEventScores({ players, events, eventScores, viewingSeason, seasonTotals, fireToast }) {
+  const scoreByKey = new Map(eventScores.map((s) => [`${s.playerId}_${s.eventId}`, s.points]));
 
-  const run = async () => {
-    setBusy(true);
+  const save = async (playerId, eventId, value) => {
+    const points = parseInt(value, 10) || 0;
     try {
-      await replaceLeaderboard(parsed.map((r) => ({ name: r.name, points: r.points, region: "", wins: 0, losses: 0 })), season);
-      fireToast(`Season ${season} leaderboard replaced with ${parsed.length} bladers`);
-      setText("");
-      setConfirming(false);
+      await setEventScore(playerId, eventId, points);
     } catch (err) {
-      console.error("replaceLeaderboard failed", err);
-      fireToast("Couldn't update the leaderboard — please try again");
-    } finally {
-      setBusy(false);
+      console.error("setEventScore failed", err);
+      fireToast("Couldn't save that score — please try again");
     }
   };
 
-  return (
-    <div className="max-w-2xl">
-      <p className="text-sm mb-4" style={{ color: "var(--text-dim)" }}>
-        Paste a whole season sheet — header row plus one row per blader, copied straight from
-        Sheets/Excel. Only the <strong style={{ color: "var(--text)" }}>name</strong> and{" "}
-        <strong style={{ color: "var(--text)" }}>TOTAL</strong> columns are used, since this app tracks
-        overall points rather than per-event breakdowns. This{" "}
-        <strong style={{ color: "var(--text)" }}>replaces all of Season {season}'s standings</strong> — other
-        seasons are untouched.
+  if (events.length === 0) {
+    return (
+      <p className="text-sm" style={{ color: "var(--text-faint)" }}>
+        No Season {viewingSeason} events yet — add one in the Events tab, then come back here to score it.
       </p>
-      <textarea
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          setConfirming(false);
-        }}
-        rows={10}
-        placeholder="Paste the full sheet here, including the header row"
-        className="w-full px-4 py-3 rounded-xl text-sm outline-none mb-3"
-        style={{ ...fieldStyle(), resize: "vertical", fontFamily: "'JetBrains Mono',monospace" }}
-      />
-      {text && parsed.length === 0 && (
-        <p className="text-xs mb-4" style={{ color: "var(--danger)" }}>
-          Couldn't find "Name" and "TOTAL" columns — make sure you pasted the header row too.
-        </p>
-      )}
-      {parsed.length > 0 && (
-        <>
-          <p className="text-sm mb-3" style={{ color: "var(--accent-ink)" }}>
-            Parsed {parsed.length} bladers — this will replace all {currentCount} current standings.
-          </p>
-          {!confirming ? (
-            <button
-              onClick={() => setConfirming(true)}
-              className="tap px-5 py-2.5 rounded-full text-sm font-semibold"
-              style={{ background: "var(--accent2)", color: "#0A0D18" }}
-            >
-              Replace leaderboard
-            </button>
-          ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs" style={{ color: "var(--bronze)" }}>Sure? This can't be undone.</span>
-              <button
-                disabled={busy}
-                onClick={run}
-                className="tap px-4 py-2 rounded-full text-xs font-semibold"
-                style={{ background: "var(--accent2)", color: "#0A0D18" }}
+    );
+  }
+  if (players.length === 0) {
+    return (
+      <p className="text-sm" style={{ color: "var(--text-faint)" }}>
+        No bladers yet — add them in the Players tab first.
+      </p>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl overflow-x-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <table className="text-sm" style={{ borderCollapse: "collapse", width: "100%" }}>
+        <thead>
+          <tr style={{ borderBottom: "1px solid var(--border)" }}>
+            <th className="text-left px-4 py-3 sticky left-0" style={{ background: "var(--surface)" }}>Blader</th>
+            {events.map((ev) => (
+              <th key={ev.id} className="text-left px-3 py-3 whitespace-nowrap font-medium" style={{ color: "var(--text-faint)" }}>
+                {ev.name}
+              </th>
+            ))}
+            <th className="text-right px-4 py-3 whitespace-nowrap" style={{ color: "var(--gold)" }}>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {players.map((p) => (
+            <tr key={p.id} style={{ borderTop: "1px solid var(--border)" }}>
+              <td className="px-4 py-2 font-medium whitespace-nowrap sticky left-0" style={{ background: "var(--surface)" }}>
+                {p.name}
+              </td>
+              {events.map((ev) => {
+                const val = scoreByKey.get(`${p.id}_${ev.id}`) ?? 0;
+                return (
+                  <td key={ev.id} className="px-2 py-1.5">
+                    <input
+                      type="number"
+                      key={val}
+                      defaultValue={val || ""}
+                      placeholder="0"
+                      onBlur={(e) => save(p.id, ev.id, e.target.value)}
+                      className="w-16 px-2 py-1 rounded-md text-sm text-center outline-none"
+                      style={fieldStyle()}
+                    />
+                  </td>
+                );
+              })}
+              <td
+                className="px-4 py-2 text-right font-semibold whitespace-nowrap"
+                style={{ fontFamily: "'JetBrains Mono',monospace", color: "var(--gold)" }}
               >
-                {busy ? "Replacing…" : "Confirm replace"}
-              </button>
-              <button
-                onClick={() => setConfirming(false)}
-                className="tap px-4 py-2 rounded-full text-xs font-semibold"
-                style={{ border: "1px solid var(--border-strong)", color: "var(--text-dim)" }}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-        </>
-      )}
+                {seasonTotals.get(p.id) ?? 0}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

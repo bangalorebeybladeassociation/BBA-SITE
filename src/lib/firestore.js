@@ -118,48 +118,43 @@ export const updateEvent = (id, data) =>
   updateDoc(doc(db, "events", id), { ...data, updatedAt: serverTimestamp() });
 export const deleteEvent = (id) => deleteDoc(doc(db, "events", id));
 
+// Legacy flat leaderboard (name + a single hand-entered points total per
+// season). Superseded by players/eventScores below, kept only so the
+// one-time "Migrate" button in the Players tab can read the old data;
+// nothing else writes here anymore.
 export const listenLeaderboard = (cb) => listenCollection("leaderboard", cb);
-export const createLeaderboardEntry = (data) =>
-  addDoc(collection(db, "leaderboard"), { ...data, updatedAt: serverTimestamp() });
-export const updateLeaderboardEntry = (id, data) =>
-  updateDoc(doc(db, "leaderboard", id), { ...data, updatedAt: serverTimestamp() });
-export const deleteLeaderboardEntry = (id) => deleteDoc(doc(db, "leaderboard", id));
 
-// Wipes the standings for one season and replaces them with a fresh set in
-// one atomic batch — used by the season bulk-import (paste a whole sheet at
-// once instead of re-entering every row by hand). Only that season's rows
-// are touched, so past seasons stay archived instead of being wiped out.
-export async function replaceLeaderboard(rows, season) {
-  const existing = await getDocs(query(collection(db, "leaderboard"), where("season", "==", season)));
+// ---------------- players (leaderboard roster) ----------------
+// A player is season-independent — the same roster persists across
+// seasons. Their standing in any given season is computed (see
+// useComputedLeaderboard in App.jsx) by summing eventScores for that
+// player across that season's events, plus an optional legacy
+// baselinePoints/baselineSeason carried over from the old flat model.
+export const listenPlayers = (cb) => listenCollection("players", cb);
+export const createPlayer = (data) =>
+  addDoc(collection(db, "players"), { ...data, createdAt: serverTimestamp() });
+export const updatePlayer = (id, data) =>
+  updateDoc(doc(db, "players", id), { ...data, updatedAt: serverTimestamp() });
+
+// Removing a player also clears their event scores so nothing orphaned
+// lingers in eventScores.
+export async function deletePlayer(id) {
+  const scores = await getDocs(query(collection(db, "eventScores"), where("playerId", "==", id)));
   const batch = writeBatch(db);
-  existing.forEach((d) => batch.delete(d.ref));
-  rows.forEach((row) => {
-    batch.set(doc(collection(db, "leaderboard")), { ...row, season, updatedAt: serverTimestamp() });
-  });
+  scores.forEach((d) => batch.delete(d.ref));
+  batch.delete(doc(db, "players", id));
   await batch.commit();
 }
 
-// Updates just the points on existing standings (matched by id) and creates
-// any pasted names that don't match an existing entry — unlike
-// replaceLeaderboard, everything else about an existing row (region, wins,
-// losses) is left alone, and rows not mentioned in the paste are untouched.
-export async function bulkUpdateLeaderboardScores(updates, creates, season) {
-  const batch = writeBatch(db);
-  updates.forEach(({ id, points }) => {
-    batch.update(doc(db, "leaderboard", id), { points, updatedAt: serverTimestamp() });
-  });
-  creates.forEach(({ name, points }) => {
-    batch.set(doc(collection(db, "leaderboard")), {
-      name,
-      points,
-      region: "",
-      wins: 0,
-      losses: 0,
-      season,
-      updatedAt: serverTimestamp(),
-    });
-  });
-  await batch.commit();
+// ---------------- event scores (a player's points at one event) ----------------
+// Doc id is deterministic (`${playerId}_${eventId}`) so setting a score is
+// a plain upsert — no need to look up whether one already exists first.
+export const listenEventScores = (cb) => listenCollection("eventScores", cb);
+export async function setEventScore(playerId, eventId, points) {
+  await setDoc(
+    doc(db, "eventScores", `${playerId}_${eventId}`),
+    { playerId, eventId, points, updatedAt: serverTimestamp() }
+  );
 }
 
 // ---------------- season setting ----------------

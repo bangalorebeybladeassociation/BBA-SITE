@@ -63,7 +63,22 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // legacy flat leaderboard — no longer written to, kept readable only so
+    // the one-time "Migrate" button (players tab) can read the old totals.
     match /leaderboard/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // leaderboard roster — a player's standing is computed client-side by
+    // summing eventScores across a season's events, not stored directly.
+    match /players/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // one doc per (player, event) — the doc id is `${playerId}_${eventId}`.
+    match /eventScores/{id} {
       allow read: if true;
       allow write: if isAdmin();
     }
