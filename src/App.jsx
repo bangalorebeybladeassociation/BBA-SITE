@@ -18,6 +18,8 @@ import {
   updateLeaderboardEntry,
   deleteLeaderboardEntry,
   replaceLeaderboard,
+  listenSeason,
+  setSeason,
   listenRulebook,
   setRulebook,
   listenInstagramPosts,
@@ -207,6 +209,45 @@ function RankRing({ rank }) {
   );
 }
 
+const LEADERBOARD_COLLAPSED_COUNT = 10;
+
+function LeaderboardList({ rows }) {
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? rows : rows.slice(0, LEADERBOARD_COLLAPSED_COUNT);
+  const hasMore = rows.length > LEADERBOARD_COLLAPSED_COUNT;
+
+  return (
+    <>
+      <div className="rounded-2xl overflow-hidden" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+        {shown.map((row, i) => (
+          <Reveal key={row.id} delay={i * 50}>
+            <div
+              className="flex items-center gap-4 px-5 py-4"
+              style={{ borderTop: i ? "1px solid #1C2136" : "none" }}
+            >
+              <RankRing rank={i + 1} />
+              <div className="flex-1">
+                <div className="font-semibold">{row.name}</div>
+                {row.region && <div className="text-xs" style={{ color: "#7A8194" }}>{row.region}</div>}
+              </div>
+              <div className="disp font-bold text-lg" style={{ color: "#00E6C3", width: 70, textAlign: "right" }}>{row.points}</div>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+      {hasMore && (
+        <button
+          onClick={() => setExpanded((e) => !e)}
+          className="tap w-full mt-4 py-3 rounded-full text-sm font-semibold"
+          style={{ background: "transparent", border: "1px solid #2A3050", color: "#F4F2EC" }}
+        >
+          {expanded ? "Show less" : `Show all ${rows.length} bladers`}
+        </button>
+      )}
+    </>
+  );
+}
+
 /* ---------- toast ---------- */
 function useToast() {
   const [toast, setToast] = useState(null);
@@ -240,6 +281,15 @@ function useLeaderboardRows() {
     return listenLeaderboard(setRows);
   }, []);
   return [...rows].sort((a, b) => (b.points || 0) - (a.points || 0));
+}
+
+function useSeason() {
+  const [season, setSeasonState] = useState(1);
+  useEffect(() => {
+    if (!firebaseReady) return;
+    return listenSeason(setSeasonState);
+  }, []);
+  return season;
 }
 
 function useRulebookText() {
@@ -393,6 +443,7 @@ export default function App() {
 
   const events = useEvents();
   const leaderboard = useLeaderboardRows();
+  const season = useSeason();
   const rulebookText = useRulebookText();
   const instagramPosts = useInstagramPosts();
   const myProfile = useMyProfile(user?.uid);
@@ -604,6 +655,11 @@ export default function App() {
             }}
             events={events}
             leaderboard={leaderboard}
+            season={season}
+            onChangeSeason={async (n) => {
+              await setSeason(n);
+              fireToast(`Now on Season ${n}`);
+            }}
             rulebookText={rulebookText}
             fireToast={fireToast}
             users={allUsers}
@@ -637,7 +693,9 @@ export default function App() {
         }}
       >
         <a href="#top" className="tap flex items-center gap-2.5">
-          <img src={bbaLogo} alt="Bangalore Beyblade Association" width={34} height={34} style={{ display: "block" }} />
+          <div style={{ width: 34, height: 34, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
+            <img src={bbaLogo} alt="Bangalore Beyblade Association" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          </div>
           {/* full name where there's room; the association's own BBA mark below that */}
           <span className="disp font-bold tracking-wide text-lg hidden lg:inline">
             BANGALORE BEYBLADE <span style={{ color: "#FF4425" }}>ASSOCIATION</span>
@@ -661,13 +719,13 @@ export default function App() {
             <Icon name="shop" /> Shop
           </a>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={() => setCartOpen(true)}
-            className="tap relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+            className="tap relative flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-semibold"
             style={{ background: "#FF4425", color: "#0A0D18" }}
           >
-            <Icon name="cart" size={16} /> Cart
+            <Icon name="cart" size={16} /> <span className="hidden sm:inline">Cart</span>
             {cartCount > 0 && (
               <span
                 key={cartCount}
@@ -697,7 +755,7 @@ export default function App() {
             className="inline-block px-3 py-1 rounded-full text-xs font-semibold mb-5"
             style={{ background: "#1C2136", color: "#00E6C3", letterSpacing: 1 }}
           >
-            BANGALORE · SEASON 3 NOW LIVE
+            BANGALORE · SEASON {season} NOW LIVE
           </div>
           <h1 className="disp font-bold leading-[0.95]" style={{ fontSize: "clamp(2.6rem,6vw,4.6rem)" }}>
             WHERE BANGALORE'S<br />
@@ -738,7 +796,7 @@ export default function App() {
           {[
             ["#events", "Events", "Every event, past and upcoming, with live brackets"],
             ["#media", "Media", "Photos and highlights from our Instagram"],
-            ["#leaderboard", "Leaderboard", "Season 3 rankings across all events"],
+            ["#leaderboard", "Leaderboard", `Season ${season} rankings across all events`],
             ["#market", "Shop", "Buy parts, or sell your own as an approved seller"],
           ].map(([href, title, desc]) => (
             <a
@@ -900,31 +958,17 @@ export default function App() {
       {/* LEADERBOARD */}
       <section id="leaderboard" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
         <Reveal>
-          <h2 className="disp font-bold text-3xl mb-2">Season 3 Leaderboard</h2>
+          <h2 className="disp font-bold text-3xl mb-2">Season {season} Leaderboard</h2>
           <p style={{ color: "#9AA1B4" }} className="mb-10">Points from all sanctioned Bangalore events, merged by ranking.</p>
         </Reveal>
-        {leaderboard.length === 0 ? (
-          <p className="text-sm" style={{ color: "#7A8194" }}>No standings posted yet.</p>
-        ) : (
-        <div className="rounded-2xl overflow-hidden" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-          {leaderboard.map((row, i) => (
-            <Reveal key={row.id} delay={i * 50}>
-              <div
-                className="flex items-center gap-4 px-5 py-4"
-                style={{ borderTop: i ? "1px solid #1C2136" : "none" }}
-              >
-                <RankRing rank={i + 1} />
-                <div className="flex-1">
-                  <div className="font-semibold">{row.name}</div>
-                  <div className="text-xs" style={{ color: "#7A8194" }}>{row.region}</div>
-                </div>
-                <div className="text-xs hidden sm:block" style={{ color: "#9AA1B4", fontFamily: "'JetBrains Mono',monospace" }}>{row.wins ?? 0}-{row.losses ?? 0}</div>
-                <div className="disp font-bold text-lg" style={{ color: "#00E6C3", width: 70, textAlign: "right" }}>{row.points}</div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-        )}
+        {(() => {
+          const seasonRows = leaderboard.filter((row) => (row.season ?? 1) === season);
+          return seasonRows.length === 0 ? (
+            <p className="text-sm" style={{ color: "#7A8194" }}>No standings posted yet.</p>
+          ) : (
+            <LeaderboardList rows={seasonRows} />
+          );
+        })()}
       </section>
 
       {/* RULEBOOK */}
@@ -963,10 +1007,11 @@ export default function App() {
       </section>
 
       <footer className="flex flex-col items-center gap-3 text-center text-xs py-10" style={{ color: "#4A5070" }}>
-        <img src={bbaLogo} alt="" width={72} height={72} style={{ display: "block", opacity: 0.85 }} />
+        <div style={{ width: 72, height: 72, borderRadius: "50%", overflow: "hidden", opacity: 0.85 }}>
+          <img src={bbaLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        </div>
         <p>
-          Bangalore Beyblade Association — an independent community project for the
-          city's Beyblade X scene. Not affiliated with TAKARA TOMY.
+          Bangalore Beyblade Association — run by bladers, for bladers. Not affiliated with TAKARA TOMY.
         </p>
       </footer>
 
@@ -1725,6 +1770,8 @@ function AdminPanel({
   onDecide,
   events,
   leaderboard,
+  season,
+  onChangeSeason,
   rulebookText,
   fireToast,
   users,
@@ -1755,7 +1802,9 @@ function AdminPanel({
       {tab === "registrations" && (
         <AdminRegistrations registrations={registrations} onSetStatus={onSetRegistrationStatus} />
       )}
-      {tab === "leaderboard" && <AdminLeaderboard rows={leaderboard} fireToast={fireToast} />}
+      {tab === "leaderboard" && (
+        <AdminLeaderboard rows={leaderboard} season={season} onChangeSeason={onChangeSeason} fireToast={fireToast} />
+      )}
       {tab === "rulebook" && <AdminRulebook text={rulebookText} fireToast={fireToast} />}
       {tab === "instagram" && <AdminInstagram posts={instagramPosts} fireToast={fireToast} />}
     </div>
@@ -2375,11 +2424,20 @@ function AdminEvents({ events, fireToast }) {
   );
 }
 
-function AdminLeaderboard({ rows, fireToast }) {
+function AdminLeaderboard({ rows, season, onChangeSeason, fireToast }) {
   const [subtab, setSubtab] = useState("manage");
+  const [viewingSeason, setViewingSeason] = useState(season);
+  const [newSeasonInput, setNewSeasonInput] = useState(String(season + 1));
   const empty = { name: "", region: "", points: "", wins: "", losses: "" };
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState(null);
+
+  // Seasons with data plus whatever's currently live, so a fresh season with
+  // no standings yet still shows up as a tab.
+  const seasonNumbers = Array.from(
+    new Set([...rows.map((r) => r.season ?? 1), season])
+  ).sort((a, b) => b - a);
+  const viewingRows = rows.filter((r) => (r.season ?? 1) === viewingSeason);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -2390,6 +2448,7 @@ function AdminLeaderboard({ rows, fireToast }) {
       points: Number(form.points) || 0,
       wins: Number(form.wins) || 0,
       losses: Number(form.losses) || 0,
+      season: viewingSeason,
     };
     if (editingId) {
       await updateLeaderboardEntry(editingId, payload);
@@ -2402,8 +2461,39 @@ function AdminLeaderboard({ rows, fireToast }) {
     setEditingId(null);
   };
 
+  const startNewSeason = async () => {
+    const n = parseInt(newSeasonInput, 10);
+    if (!n || n === season) return;
+    await onChangeSeason(n);
+    setViewingSeason(n);
+    setNewSeasonInput(String(n + 1));
+  };
+
   return (
     <div>
+      <div className="mb-6 p-4 rounded-2xl flex flex-wrap items-center gap-3" style={{ background: "#141827", border: "1px solid #1C2136" }}>
+        <div className="text-sm">
+          Current season: <span className="font-semibold" style={{ color: "#00E6C3" }}>Season {season}</span>
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <input
+            type="number"
+            value={newSeasonInput}
+            onChange={(e) => setNewSeasonInput(e.target.value)}
+            className="w-20 px-3 py-1.5 rounded-lg text-sm outline-none"
+            style={fieldStyle()}
+          />
+          <button onClick={startNewSeason} className="tap px-4 py-1.5 rounded-full text-xs font-semibold" style={{ background: "#FF4425", color: "#0A0D18" }}>
+            Start new season
+          </button>
+        </div>
+      </div>
+      <p className="text-xs mb-2" style={{ color: "#7A8194" }}>Viewing standings for</p>
+      <TabStrip
+        tabs={seasonNumbers.map((n) => [n, `Season ${n}`])}
+        active={viewingSeason}
+        onChange={setViewingSeason}
+      />
       <TabStrip
         tabs={[["manage", "Manage"], ["import", "Bulk Import"]]}
         active={subtab}
@@ -2412,7 +2502,7 @@ function AdminLeaderboard({ rows, fireToast }) {
       {subtab === "manage" && (
         <div className="grid md:grid-cols-2 gap-8">
           <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "#141827", border: "1px solid #1C2136" }}>
-            <h3 className="font-semibold mb-1">{editingId ? "Edit standing" : "Add standing"}</h3>
+            <h3 className="font-semibold mb-1">{editingId ? "Edit standing" : `Add standing — Season ${viewingSeason}`}</h3>
             <input placeholder="Blader name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
             <input placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()} />
             <div className="flex gap-3">
@@ -2432,8 +2522,8 @@ function AdminLeaderboard({ rows, fireToast }) {
             </div>
           </form>
           <div className="space-y-2">
-            {rows.length === 0 && <p className="text-sm" style={{ color: "#7A8194" }}>No standings yet.</p>}
-            {rows.map((row) => (
+            {viewingRows.length === 0 && <p className="text-sm" style={{ color: "#7A8194" }}>No standings yet.</p>}
+            {viewingRows.map((row) => (
               <div key={row.id} className="p-3 rounded-xl flex items-center justify-between gap-2" style={{ background: "#141827", border: "1px solid #1C2136" }}>
                 <div>
                   <div className="text-sm font-medium">{row.name}</div>
@@ -2448,7 +2538,9 @@ function AdminLeaderboard({ rows, fireToast }) {
           </div>
         </div>
       )}
-      {subtab === "import" && <LeaderboardBulkImport currentCount={rows.length} fireToast={fireToast} />}
+      {subtab === "import" && (
+        <LeaderboardBulkImport currentCount={viewingRows.length} season={viewingSeason} fireToast={fireToast} />
+      )}
     </div>
   );
 }
@@ -2475,7 +2567,7 @@ function parseLeaderboardPaste(text) {
     .filter((r) => r.name);
 }
 
-function LeaderboardBulkImport({ currentCount, fireToast }) {
+function LeaderboardBulkImport({ currentCount, season, fireToast }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -2484,8 +2576,8 @@ function LeaderboardBulkImport({ currentCount, fireToast }) {
   const run = async () => {
     setBusy(true);
     try {
-      await replaceLeaderboard(parsed.map((r) => ({ name: r.name, points: r.points, region: "", wins: 0, losses: 0 })));
-      fireToast(`Leaderboard replaced with ${parsed.length} bladers`);
+      await replaceLeaderboard(parsed.map((r) => ({ name: r.name, points: r.points, region: "", wins: 0, losses: 0 })), season);
+      fireToast(`Season ${season} leaderboard replaced with ${parsed.length} bladers`);
       setText("");
       setConfirming(false);
     } catch (err) {
@@ -2503,7 +2595,8 @@ function LeaderboardBulkImport({ currentCount, fireToast }) {
         Sheets/Excel. Only the <strong style={{ color: "#F4F2EC" }}>name</strong> and{" "}
         <strong style={{ color: "#F4F2EC" }}>TOTAL</strong> columns are used, since this app tracks
         overall points rather than per-event breakdowns. This{" "}
-        <strong style={{ color: "#F4F2EC" }}>replaces the entire current leaderboard</strong>.
+        <strong style={{ color: "#F4F2EC" }}>replaces all of Season {season}'s standings</strong> — other
+        seasons are untouched.
       </p>
       <textarea
         value={text}

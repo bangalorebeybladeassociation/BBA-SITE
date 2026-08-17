@@ -34,7 +34,7 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
     <div ref={ref} style={{ position: "relative" }}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="tap flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full text-sm font-semibold"
+        className="tap flex items-center gap-2 pl-2 pr-2 sm:pr-3 py-1.5 rounded-full text-sm font-semibold"
         style={{ background: "transparent", border: "1px solid #2A3050", color: "#F4F2EC" }}
       >
         {user.photoURL ? (
@@ -47,13 +47,13 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
           />
         ) : (
           <span
-            className="flex items-center justify-center rounded-full font-bold"
+            className="flex items-center justify-center rounded-full font-bold shrink-0"
             style={{ width: 24, height: 24, background: "#00E6C3", color: "#0A0D18", fontSize: 11 }}
           >
             {user.name?.[0]?.toUpperCase() || "?"}
           </span>
         )}
-        {user.name}
+        <span className="hidden sm:inline whitespace-nowrap">{user.name}</span>
       </button>
 
       {open && (

@@ -68,6 +68,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // single doc: settings/season { current: number } — drives the
+    // "Season N" badges/headings and tags new leaderboard entries.
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /rulebook/{id} {
       allow read: if true;
       allow write: if isAdmin();

@@ -125,17 +125,35 @@ export const updateLeaderboardEntry = (id, data) =>
   updateDoc(doc(db, "leaderboard", id), { ...data, updatedAt: serverTimestamp() });
 export const deleteLeaderboardEntry = (id) => deleteDoc(doc(db, "leaderboard", id));
 
-// Wipes the current standings and replaces them with a fresh set in one
-// atomic batch — used by the season bulk-import (paste a whole sheet at
-// once instead of re-entering every row by hand).
-export async function replaceLeaderboard(rows) {
-  const existing = await getDocs(collection(db, "leaderboard"));
+// Wipes the standings for one season and replaces them with a fresh set in
+// one atomic batch — used by the season bulk-import (paste a whole sheet at
+// once instead of re-entering every row by hand). Only that season's rows
+// are touched, so past seasons stay archived instead of being wiped out.
+export async function replaceLeaderboard(rows, season) {
+  const existing = await getDocs(query(collection(db, "leaderboard"), where("season", "==", season)));
   const batch = writeBatch(db);
   existing.forEach((d) => batch.delete(d.ref));
   rows.forEach((row) => {
-    batch.set(doc(collection(db, "leaderboard")), { ...row, updatedAt: serverTimestamp() });
+    batch.set(doc(collection(db, "leaderboard")), { ...row, season, updatedAt: serverTimestamp() });
   });
   await batch.commit();
+}
+
+// ---------------- season setting ----------------
+// Single doc driving the "Season N" badges/headings and the season new
+// leaderboard entries get tagged with. Defaults to 1 if never set.
+export function listenSeason(cb) {
+  return onSnapshot(
+    doc(db, "settings", "season"),
+    (snap) => cb(snap.exists() ? snap.data().current : 1),
+    (err) => {
+      console.error("listenSeason", err);
+      cb(1);
+    }
+  );
+}
+export async function setSeason(current) {
+  await setDoc(doc(db, "settings", "season"), { current, updatedAt: serverTimestamp() });
 }
 
 export function listenRulebook(cb) {
