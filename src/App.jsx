@@ -929,7 +929,7 @@ export default function App() {
           </p>
           <div className="mt-8 flex flex-wrap gap-4">
             <a
-              href="https://challonge.com/"
+              href={events[0]?.bracketUrl || "https://challonge.com/"}
               target="_blank"
               rel="noreferrer"
               className="tap px-6 py-3 rounded-full font-semibold text-sm"
