@@ -300,16 +300,20 @@ function PodiumCard({ row, rank, eventDefs, featured }) {
 
 function StandingsRow({ row, maxPoints, eventDefs, delay }) {
   const pct = maxPoints > 0 ? Math.max(4, (row.points / maxPoints) * 100) : 0;
+  // Ties are only called out within the top 10 — below that they're common
+  // enough (a 47-blader season) that flagging every one just adds noise;
+  // the rank numbers stay mathematically correct either way.
+  const showTie = row.tied && row.rank <= 10;
   return (
     <Reveal delay={delay}>
       <div className="flex items-center gap-3 sm:gap-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
         <span className="text-sm w-9 sm:w-10 shrink-0 whitespace-nowrap" style={{ color: "var(--text-faint)", fontFamily: "'JetBrains Mono',monospace" }}>
-          {row.tied ? `T-${row.rank}` : row.rank}
+          {showTie ? `T-${row.rank}` : row.rank}
         </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span className="font-semibold text-sm truncate">{row.name}</span>
-            {row.tied && (
+            {showTie && (
               <span
                 className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
                 style={{ border: "1px solid var(--danger)", color: "var(--danger)" }}
@@ -389,6 +393,7 @@ function LeaderboardSection({ rows, eventDefs, season }) {
           <div className="text-xs font-semibold mb-1" style={{ color: "var(--text-faint)", letterSpacing: 1 }}>02 FULL STANDINGS</div>
           <p className="text-xs mb-4" style={{ color: "var(--text-faint)" }}>
             Ranked by total points. Bladers with equal totals share a place — the next rank skips to reflect it.
+            Ties are only marked with a TIE badge within the top 10.
           </p>
           <div className="rounded-2xl px-4 sm:px-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
             {shownRest.map((row, i) => (
