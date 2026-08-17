@@ -63,6 +63,8 @@ npm run lint               # eslint
 
 ```
 firestore.rules          # Firestore security rules — publish manually, see above
+public/
+  favicon.png              # browser tab icon, served at the site root
 src/
   App.jsx                 # nearly all page sections + admin/seller/buyer panels
   main.jsx                 # React entry point
