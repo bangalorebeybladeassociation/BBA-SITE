@@ -140,6 +140,17 @@ const ICON_PATHS = {
       <circle cx="12" cy="8" r="0.2" fill="currentColor" stroke="currentColor" strokeWidth="2.2" />
     </>
   ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4.2" />
+      <path d="M12 2.5v2.6M12 18.9v2.6M4.6 4.6l1.9 1.9M17.5 17.5l1.9 1.9M2.5 12h2.6M18.9 12h2.6M4.6 19.4l1.9-1.9M17.5 6.5l1.9-1.9" />
+    </>
+  ),
+  moon: (
+    <>
+      <path d="M20 14.2A8.5 8.5 0 1 1 9.8 4a6.8 6.8 0 0 0 10.2 10.2z" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 16 }) {

@@ -23,7 +23,7 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
       <button
         onClick={() => goAuth("login")}
         className="tap px-4 py-2 rounded-full text-sm font-semibold"
-        style={{ background: "transparent", border: "1px solid #2A3050", color: "#F4F2EC" }}
+        style={{ background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text)" }}
       >
         Sign in
       </button>
@@ -35,7 +35,7 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
       <button
         onClick={() => setOpen((o) => !o)}
         className="tap flex items-center gap-2 pl-2 pr-2 sm:pr-3 py-1.5 rounded-full text-sm font-semibold"
-        style={{ background: "transparent", border: "1px solid #2A3050", color: "#F4F2EC" }}
+        style={{ background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text)" }}
       >
         {user.photoURL ? (
           <img
@@ -48,7 +48,7 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
         ) : (
           <span
             className="flex items-center justify-center rounded-full font-bold shrink-0"
-            style={{ width: 24, height: 24, background: "#00E6C3", color: "#0A0D18", fontSize: 11 }}
+            style={{ width: 24, height: 24, background: "var(--accent)", color: "#0A0D18", fontSize: 11 }}
           >
             {user.name?.[0]?.toUpperCase() || "?"}
           </span>
@@ -60,8 +60,8 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
         <div
           className="absolute right-0 mt-2 rounded-xl overflow-hidden"
           style={{
-            background: "#141827",
-            border: "1px solid #1C2136",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
             minWidth: 160,
             zIndex: 50,
             transformOrigin: "top right",
@@ -74,7 +74,7 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
               onOpenOrders?.();
             }}
             className="tap w-full text-left px-4 py-2.5 text-sm"
-            style={{ color: "#F4F2EC", borderBottom: "1px solid #1C2136" }}
+            style={{ color: "var(--text)", borderBottom: "1px solid var(--border)" }}
           >
             My orders
           </button>
@@ -85,7 +85,7 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
                 goPage("seller");
               }}
               className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2"
-              style={{ color: "#F4F2EC", borderBottom: "1px solid #1C2136" }}
+              style={{ color: "var(--text)", borderBottom: "1px solid var(--border)" }}
             >
               <Icon name="seller" /> Seller dashboard
             </button>
@@ -97,7 +97,7 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
                 goPage("admin");
               }}
               className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2"
-              style={{ color: "#F4F2EC", borderBottom: "1px solid #1C2136" }}
+              style={{ color: "var(--text)", borderBottom: "1px solid var(--border)" }}
             >
               <Icon name="admin" /> Admin dashboard
             </button>
@@ -109,7 +109,7 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
               onSignedOut?.();
             }}
             className="tap w-full text-left px-4 py-2.5 text-sm"
-            style={{ color: "#F4F2EC" }}
+            style={{ color: "var(--text)" }}
           >
             Sign out
           </button>

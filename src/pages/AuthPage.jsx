@@ -22,16 +22,16 @@ function friendlyError(err) {
 function Field({ label, ...props }) {
   return (
     <label className="block text-left mb-4">
-      <span className="block text-xs font-semibold mb-1.5" style={{ color: "#9AA1B4" }}>
+      <span className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-dim)" }}>
         {label}
       </span>
       <input
         {...props}
         className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none"
         style={{
-          background: "#0A0D18",
-          border: "1px solid #2A3050",
-          color: "#F4F2EC",
+          background: "var(--bg)",
+          border: "1px solid var(--border-strong)",
+          color: "var(--text)",
         }}
       />
     </label>
@@ -78,27 +78,27 @@ export default function AuthPage({ mode, next, onClose }) {
   return (
     <div
       className="min-h-screen flex items-center justify-center px-5"
-      style={{ background: "#0A0D18", color: "#F4F2EC" }}
+      style={{ background: "var(--bg)", color: "var(--text)" }}
     >
       <div
         className="w-full max-w-sm rounded-2xl p-8"
         style={{
-          background: "#141827",
-          border: "1px solid #1C2136",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
           animation: `auth-in 420ms ${EASE}`,
         }}
       >
         <h1 className="disp text-2xl font-bold mb-1 text-center">
           {isSignup ? "Create account" : "Sign in"}
         </h1>
-        <p className="text-sm mb-6 text-center" style={{ color: "#7A8194" }}>
+        <p className="text-sm mb-6 text-center" style={{ color: "var(--text-faint)" }}>
           {isSignup ? "Join the Bangalore Beyblade Association." : "Welcome back, blader."}
         </p>
 
         {!firebaseReady ? (
           <p
             className="text-sm text-center rounded-lg px-3.5 py-3 mb-2"
-            style={{ background: "#0A0D18", border: "1px solid #2A3050", color: "#FF9354" }}
+            style={{ background: "var(--bg)", border: "1px solid var(--border-strong)", color: "var(--bronze)" }}
           >
             Auth isn't configured yet — add Firebase project keys to .env (see .env.example) to
             enable sign-in.
@@ -135,7 +135,7 @@ export default function AuthPage({ mode, next, onClose }) {
               />
 
               {error && (
-                <p className="text-xs mb-4" style={{ color: "#FF6B5A" }}>
+                <p className="text-xs mb-4" style={{ color: "var(--danger)" }}>
                   {error}
                 </p>
               )}
@@ -145,7 +145,7 @@ export default function AuthPage({ mode, next, onClose }) {
                 disabled={busy}
                 className="tap w-full py-2.5 rounded-full text-sm font-semibold mb-3"
                 style={{
-                  background: "#FF4425",
+                  background: "var(--accent2)",
                   color: "#0A0D18",
                   opacity: busy ? 0.6 : 1,
                   transition: `opacity 200ms ${EASE}`,
@@ -156,11 +156,11 @@ export default function AuthPage({ mode, next, onClose }) {
             </form>
 
             <div className="flex items-center gap-3 my-4">
-              <div style={{ flex: 1, height: 1, background: "#2A3050" }} />
-              <span className="text-xs" style={{ color: "#4A5070" }}>
+              <div style={{ flex: 1, height: 1, background: "var(--border-strong)" }} />
+              <span className="text-xs" style={{ color: "var(--text-faint-2)" }}>
                 or
               </span>
-              <div style={{ flex: 1, height: 1, background: "#2A3050" }} />
+              <div style={{ flex: 1, height: 1, background: "var(--border-strong)" }} />
             </div>
 
             <button
@@ -170,8 +170,8 @@ export default function AuthPage({ mode, next, onClose }) {
               className="tap w-full py-2.5 rounded-full text-sm font-semibold"
               style={{
                 background: "transparent",
-                border: "1px solid #2A3050",
-                color: "#F4F2EC",
+                border: "1px solid var(--border-strong)",
+                color: "var(--text)",
                 opacity: busy ? 0.6 : 1,
               }}
             >
@@ -180,13 +180,13 @@ export default function AuthPage({ mode, next, onClose }) {
           </>
         )}
 
-        <p className="text-sm text-center mt-6" style={{ color: "#7A8194" }}>
+        <p className="text-sm text-center mt-6" style={{ color: "var(--text-faint)" }}>
           {isSignup ? "Already have an account? " : "New to BBA? "}
           <button
             type="button"
             onClick={() => goAuth(isSignup ? "login" : "signup", next)}
             className="tap font-semibold"
-            style={{ color: "#00E6C3" }}
+            style={{ color: "var(--accent-ink)" }}
           >
             {isSignup ? "Sign in" : "Create one"}
           </button>
@@ -196,7 +196,7 @@ export default function AuthPage({ mode, next, onClose }) {
           type="button"
           onClick={onClose}
           className="tap block mx-auto mt-4 text-xs"
-          style={{ color: "#4A5070" }}
+          style={{ color: "var(--text-faint-2)" }}
         >
           Back to site
         </button>
