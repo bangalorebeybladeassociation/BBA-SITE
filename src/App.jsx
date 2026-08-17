@@ -1003,7 +1003,7 @@ export default function App() {
               <div
                 className="absolute rounded-full"
                 style={{
-                  left: -37,
+                  left: -40,
                   top: 6,
                   width: 14,
                   height: 14,
