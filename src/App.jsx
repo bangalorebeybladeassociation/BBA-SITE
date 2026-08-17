@@ -1235,18 +1235,20 @@ export default function App() {
       <Reveal className="max-w-6xl mx-auto px-5 md:px-10 pb-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            ["#events", "Events", "Every event, past and upcoming, with live brackets"],
-            ["#media", "Media", "Photos and highlights from our Instagram"],
-            ["#leaderboard", "Leaderboard", `Season ${season} rankings across all events`],
-            ["#market", "Shop", "Buy parts, or sell your own as an approved seller"],
-          ].map(([href, title, desc]) => (
+            ["#events", "events", "Events", "Every event, past and upcoming, with live brackets"],
+            ["#media", "media", "Media", "Photos and highlights from our Instagram"],
+            ["#leaderboard", "leaderboard", "Leaderboard", `Season ${season} rankings across all events`],
+            ["#market", "shop", "Shop", "Buy parts, or sell your own as an approved seller"],
+          ].map(([href, icon, title, desc]) => (
             <a
               key={href}
               href={href}
               className="tap lift p-4 rounded-2xl block"
               style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
             >
-              <div className="disp font-semibold text-base" style={{ color: "var(--accent-ink)" }}>{title}</div>
+              <div className="disp font-semibold text-base flex items-center gap-2" style={{ color: "var(--accent-ink)" }}>
+                <Icon name={icon} size={18} /> {title}
+              </div>
               <div className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>{desc}</div>
             </a>
           ))}
