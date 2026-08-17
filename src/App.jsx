@@ -446,27 +446,32 @@ function parseCsvRow(line) {
   return cells;
 }
 
-// Known event column-pairs, matched by a short keyword against the header
-// text rather than a fixed position — tolerates the sheet's inconsistent
-// wording ("Inferno Game Points" vs "Blade Requiem Points" vs "June
-// Attendance") as long as the event's name appears somewhere in its first
-// column. "domin" (not "dominion") deliberately matches the sheet's typo
-// ("Dominiion"). This only drives the decorative per-event dots below —
-// the actual points/ranking always come from the TOTAL column, so a
-// column this can't find just means that event's dot never lights up,
-// not a wrong score.
-const LEADERBOARD_EVENT_DEFS = [
-  { key: "inferno", label: "Inferno", short: "I" },
-  { key: "veil", label: "Ash & Veil", short: "A" },
-  { key: "requiem", label: "Blade Requiem", short: "B" },
-  { key: "genesis", label: "Genesis", short: "G" },
-  { key: "domin", label: "Dominion", short: "D" },
-];
-
-function findEventColumns(header) {
-  return LEADERBOARD_EVENT_DEFS
-    .map((def) => ({ ...def, idx: header.findIndex((h) => h.includes(def.key)) }))
-    .filter((d) => d.idx !== -1);
+// Every event is a pair of columns (a score column + an attendance column)
+// sitting between "Blader Name" and "TOTAL" — so instead of matching a
+// fixed list of event names, this just walks that range two columns at a
+// time and reads each event's own name straight off its first column's
+// header ("Inferno Game Points" -> "Inferno", "Blade Requiem Points" ->
+// "Blade Requiem"). Add a new event to the sheet in the same two-column
+// style and it's picked up automatically, no code change needed. This
+// only drives the decorative per-event dots — the actual points/ranking
+// always come from the TOTAL column, so a header that doesn't fit the
+// pattern just means that one event's dot never lights up, never a wrong
+// score.
+function findEventColumns(rawHeader, bladerIdx, totalIdx) {
+  const defs = [];
+  for (let i = bladerIdx + 1; i + 1 < totalIdx; i += 2) {
+    const rawLabel = (rawHeader[i] || "").trim();
+    if (!rawLabel) continue;
+    const label =
+      rawLabel
+        .replace(/\s*game\s*points\s*$/i, "")
+        .replace(/\s*points\s*$/i, "")
+        .replace(/\s*game\s*$/i, "")
+        .trim() || rawLabel;
+    const key = label.toLowerCase().replace(/[^a-z0-9]+/g, "-") || `event-${i}`;
+    defs.push({ key, label, short: label.charAt(0).toUpperCase() || "?", idx: i });
+  }
+  return defs;
 }
 
 // Only the Blader Name and TOTAL columns feed the actual points/ranking —
@@ -481,11 +486,12 @@ async function fetchSheetLeaderboard() {
   const text = await res.text();
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) return { rows: [], eventDefs: [] };
-  const header = parseCsvRow(lines[0]).map((h) => h.trim().toLowerCase());
+  const rawHeader = parseCsvRow(lines[0]).map((h) => h.trim());
+  const header = rawHeader.map((h) => h.toLowerCase());
   const bladerIdx = header.findIndex((h) => h.includes("blader"));
   const totalIdx = header.findIndex((h) => h === "total" || h.includes("total"));
   if (bladerIdx === -1 || totalIdx === -1) return { rows: [], eventDefs: [] };
-  const eventCols = findEventColumns(header);
+  const eventCols = findEventColumns(rawHeader, bladerIdx, totalIdx);
   const num = (s) => parseInt((s || "").trim(), 10) || 0;
   const rows = lines
     .slice(1)
