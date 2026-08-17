@@ -1626,6 +1626,32 @@ const REGISTRATION_UPI_ID = "sarkar.288@superyes";
 const REGISTRATION_PLAYER_FEE = 550;
 const REGISTRATION_VISITOR_FEE = 150;
 
+// Standard NPCI "upi://pay" deep link — any UPI app installed on the
+// device (GPay, PhonePe, Paytm, etc.) registers this scheme, so the OS
+// shows its own app-picker rather than us needing per-app URIs.
+function buildUpiLink(amount, note) {
+  const params = new URLSearchParams({
+    pa: REGISTRATION_UPI_ID,
+    pn: "Bangalore Beyblade Association",
+    am: String(amount),
+    cu: "INR",
+  });
+  if (note) params.set("tn", note);
+  return `upi://pay?${params.toString()}`;
+}
+
+function UpiPayButton({ amount, note }) {
+  return (
+    <a
+      href={buildUpiLink(amount, note)}
+      className="tap w-full py-2.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
+      style={{ background: "var(--accent2)", color: "#0A0D18" }}
+    >
+      <Icon name="wallet" size={15} /> Pay ₹{amount} with GPay / PhonePe / UPI
+    </a>
+  );
+}
+
 const REGISTRATION_TERMS = [
   "All registrations are final and non-refundable.",
   "If any non-participants (spectators or accompanying guests) are joining along with participants, please make the payment for everyone in a single transaction to help us track payments efficiently.",
@@ -1730,10 +1756,11 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
           </p>
           <div className="p-4 rounded-xl mb-5" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
             <div className="text-xs mb-1" style={{ color: "var(--text-faint)" }}>UPI ID</div>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 mb-3">
               <span className="text-sm font-semibold" style={{ color: "var(--accent-ink)" }}>{REGISTRATION_UPI_ID}</span>
               <CopyUpiButton copied={copied} onCopy={copyUpi} />
             </div>
+            {totalDue > 0 && <UpiPayButton amount={totalDue} note={`${event.name} registration`} />}
           </div>
           <button onClick={onClose} className="tap w-full py-2.5 rounded-full text-sm font-semibold" style={{ background: "var(--accent)", color: "#0A0D18" }}>
             Back to site
@@ -1876,10 +1903,11 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
                       <span>₹{visitorCount * REGISTRATION_VISITOR_FEE}</span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+                  <div className="flex items-center justify-between mt-2 pt-2 mb-3" style={{ borderTop: "1px solid var(--border)" }}>
                     <span className="text-sm font-semibold">Total</span>
                     <span className="text-lg font-bold" style={{ color: "var(--accent-ink)" }}>₹{totalDue}</span>
                   </div>
+                  <UpiPayButton amount={totalDue} note={`${event.name} registration`} />
                 </>
               ) : (
                 <p className="text-xs" style={{ color: "var(--text-faint)" }}>Select Player or Visitor above to see your total.</p>
