@@ -300,7 +300,9 @@ function useEvents() {
     if (!firebaseReady) return;
     return listenEvents(setEvents);
   }, []);
-  return events;
+  // Firestore returns these in whatever order they were created, not
+  // chronological — sort latest date first so the timeline reads in order.
+  return [...events].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 }
 
 function useLeaderboardRows() {
