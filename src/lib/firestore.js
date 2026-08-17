@@ -4,14 +4,12 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  getDocs,
   onSnapshot,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
-  writeBatch,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -117,45 +115,6 @@ export const createEvent = (data) =>
 export const updateEvent = (id, data) =>
   updateDoc(doc(db, "events", id), { ...data, updatedAt: serverTimestamp() });
 export const deleteEvent = (id) => deleteDoc(doc(db, "events", id));
-
-// Legacy flat leaderboard (name + a single hand-entered points total per
-// season). Superseded by players/eventScores below, kept only so the
-// one-time "Migrate" button in the Players tab can read the old data;
-// nothing else writes here anymore.
-export const listenLeaderboard = (cb) => listenCollection("leaderboard", cb);
-
-// ---------------- players (leaderboard roster) ----------------
-// A player is season-independent — the same roster persists across
-// seasons. Their standing in any given season is computed (see
-// useComputedLeaderboard in App.jsx) by summing eventScores for that
-// player across that season's events, plus an optional legacy
-// baselinePoints/baselineSeason carried over from the old flat model.
-export const listenPlayers = (cb) => listenCollection("players", cb);
-export const createPlayer = (data) =>
-  addDoc(collection(db, "players"), { ...data, createdAt: serverTimestamp() });
-export const updatePlayer = (id, data) =>
-  updateDoc(doc(db, "players", id), { ...data, updatedAt: serverTimestamp() });
-
-// Removing a player also clears their event scores so nothing orphaned
-// lingers in eventScores.
-export async function deletePlayer(id) {
-  const scores = await getDocs(query(collection(db, "eventScores"), where("playerId", "==", id)));
-  const batch = writeBatch(db);
-  scores.forEach((d) => batch.delete(d.ref));
-  batch.delete(doc(db, "players", id));
-  await batch.commit();
-}
-
-// ---------------- event scores (a player's points at one event) ----------------
-// Doc id is deterministic (`${playerId}_${eventId}`) so setting a score is
-// a plain upsert — no need to look up whether one already exists first.
-export const listenEventScores = (cb) => listenCollection("eventScores", cb);
-export async function setEventScore(playerId, eventId, points) {
-  await setDoc(
-    doc(db, "eventScores", `${playerId}_${eventId}`),
-    { playerId, eventId, points, updatedAt: serverTimestamp() }
-  );
-}
 
 // ---------------- season setting ----------------
 // Single doc driving the "Season N" badges/headings and the season new
