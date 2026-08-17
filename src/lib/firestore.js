@@ -139,6 +139,29 @@ export async function replaceLeaderboard(rows, season) {
   await batch.commit();
 }
 
+// Updates just the points on existing standings (matched by id) and creates
+// any pasted names that don't match an existing entry — unlike
+// replaceLeaderboard, everything else about an existing row (region, wins,
+// losses) is left alone, and rows not mentioned in the paste are untouched.
+export async function bulkUpdateLeaderboardScores(updates, creates, season) {
+  const batch = writeBatch(db);
+  updates.forEach(({ id, points }) => {
+    batch.update(doc(db, "leaderboard", id), { points, updatedAt: serverTimestamp() });
+  });
+  creates.forEach(({ name, points }) => {
+    batch.set(doc(collection(db, "leaderboard")), {
+      name,
+      points,
+      region: "",
+      wins: 0,
+      losses: 0,
+      season,
+      updatedAt: serverTimestamp(),
+    });
+  });
+  await batch.commit();
+}
+
 // ---------------- season setting ----------------
 // Single doc driving the "Season N" badges/headings and the season new
 // leaderboard entries get tagged with. Defaults to 1 if never set.

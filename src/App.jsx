@@ -19,6 +19,7 @@ import {
   updateLeaderboardEntry,
   deleteLeaderboardEntry,
   replaceLeaderboard,
+  bulkUpdateLeaderboardScores,
   listenSeason,
   setSeason,
   listenMemberCount,
@@ -2819,7 +2820,7 @@ function AdminLeaderboard({ rows, season, onChangeSeason, fireToast }) {
         onChange={setViewingSeason}
       />
       <TabStrip
-        tabs={[["manage", "Manage"], ["import", "Bulk Import"]]}
+        tabs={[["manage", "Manage"], ["edit", "Bulk Edit"], ["import", "Bulk Import"]]}
         active={subtab}
         onChange={setSubtab}
       />
@@ -2862,6 +2863,9 @@ function AdminLeaderboard({ rows, season, onChangeSeason, fireToast }) {
           </div>
         </div>
       )}
+      {subtab === "edit" && (
+        <LeaderboardBulkEdit rows={viewingRows} season={viewingSeason} fireToast={fireToast} />
+      )}
       {subtab === "import" && (
         <LeaderboardBulkImport currentCount={viewingRows.length} season={viewingSeason} fireToast={fireToast} />
       )}
@@ -2889,6 +2893,141 @@ function parseLeaderboardPaste(text) {
       return { name, points };
     })
     .filter((r) => r.name);
+}
+
+// Updates existing standings' points in place from a pasted sheet, without
+// touching region/wins/losses and without wiping out anyone not mentioned —
+// unlike Bulk Import, which replaces the whole season wholesale.
+function LeaderboardBulkEdit({ rows, season, fireToast }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const parsed = parseLeaderboardPaste(text);
+
+  const matches = [];
+  const creates = [];
+  parsed.forEach((p) => {
+    const existing = rows.find((r) => r.name.trim().toLowerCase() === p.name.trim().toLowerCase());
+    if (existing) {
+      matches.push({ id: existing.id, name: existing.name, oldPoints: existing.points, newPoints: p.points });
+    } else {
+      creates.push(p);
+    }
+  });
+  const changedCount = matches.filter((m) => m.oldPoints !== m.newPoints).length;
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      await bulkUpdateLeaderboardScores(
+        matches.map(({ id, newPoints }) => ({ id, points: newPoints })),
+        creates,
+        season
+      );
+      fireToast(`Updated ${changedCount} score${changedCount === 1 ? "" : "s"}${creates.length ? ` · added ${creates.length}` : ""}`);
+      setText("");
+      setConfirming(false);
+    } catch (err) {
+      console.error("bulkUpdateLeaderboardScores failed", err);
+      fireToast("Couldn't update scores — please try again");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl">
+      <p className="text-sm mb-4" style={{ color: "var(--text-dim)" }}>
+        Paste updated scores — same header-row-plus-rows format as Bulk Import. Names that match an
+        existing Season {season} standing get just their{" "}
+        <strong style={{ color: "var(--text)" }}>points</strong> updated (region/wins/losses stay as
+        they are); names that don't match are added as new standings. Anyone not mentioned in the
+        paste is left untouched.
+      </p>
+      <textarea
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setConfirming(false);
+        }}
+        rows={10}
+        placeholder="Paste the updated sheet here, including the header row"
+        className="w-full px-4 py-3 rounded-xl text-sm outline-none mb-3"
+        style={{ ...fieldStyle(), resize: "vertical", fontFamily: "'JetBrains Mono',monospace" }}
+      />
+      {text && parsed.length === 0 && (
+        <p className="text-xs mb-4" style={{ color: "var(--danger)" }}>
+          Couldn't find "Name" and "TOTAL" columns — make sure you pasted the header row too.
+        </p>
+      )}
+      {parsed.length > 0 && (
+        <>
+          <div className="rounded-xl overflow-hidden mb-3" style={{ border: "1px solid var(--border)" }}>
+            {matches.map((m) => (
+              <div
+                key={m.id}
+                className="flex items-center justify-between px-3 py-2 text-sm"
+                style={{ borderTop: "1px solid var(--border)" }}
+              >
+                <span>{m.name}</span>
+                <span
+                  style={{
+                    fontFamily: "'JetBrains Mono',monospace",
+                    color: m.oldPoints === m.newPoints ? "var(--text-faint)" : "var(--accent-ink)",
+                  }}
+                >
+                  {m.oldPoints === m.newPoints ? `${m.oldPoints} (no change)` : `${m.oldPoints} → ${m.newPoints}`}
+                </span>
+              </div>
+            ))}
+            {creates.map((c, i) => (
+              <div
+                key={`new-${i}`}
+                className="flex items-center justify-between px-3 py-2 text-sm"
+                style={{ borderTop: "1px solid var(--border)" }}
+              >
+                <span>{c.name}</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", color: "var(--gold)" }}>new · {c.points}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm mb-3" style={{ color: "var(--text-dim)" }}>
+            {changedCount} score{changedCount === 1 ? "" : "s"} will change
+            {creates.length > 0 ? `, ${creates.length} new blader${creates.length === 1 ? "" : "s"} added.` : "."}
+          </p>
+          {!confirming ? (
+            <button
+              onClick={() => setConfirming(true)}
+              disabled={changedCount === 0 && creates.length === 0}
+              className="tap px-5 py-2.5 rounded-full text-sm font-semibold"
+              style={{ background: "var(--accent2)", color: "#0A0D18", opacity: changedCount === 0 && creates.length === 0 ? 0.5 : 1 }}
+            >
+              Apply updates
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs" style={{ color: "var(--bronze)" }}>Sure? This can't be undone.</span>
+              <button
+                disabled={busy}
+                onClick={run}
+                className="tap px-4 py-2 rounded-full text-xs font-semibold"
+                style={{ background: "var(--accent2)", color: "#0A0D18" }}
+              >
+                {busy ? "Updating…" : "Confirm update"}
+              </button>
+              <button
+                onClick={() => setConfirming(false)}
+                className="tap px-4 py-2 rounded-full text-xs font-semibold"
+                style={{ border: "1px solid var(--border-strong)", color: "var(--text-dim)" }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 function LeaderboardBulkImport({ currentCount, season, fireToast }) {
