@@ -21,6 +21,8 @@ import {
   replaceLeaderboard,
   listenSeason,
   setSeason,
+  listenMemberCount,
+  syncMemberCount,
   listenRulebook,
   setRulebook,
   listenInstagramPosts,
@@ -323,6 +325,15 @@ function useSeason() {
   return season;
 }
 
+function useMemberCount() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!firebaseReady) return;
+    return listenMemberCount(setCount);
+  }, []);
+  return count;
+}
+
 function useRulebookText() {
   const [text, setText] = useState("");
   useEffect(() => {
@@ -559,6 +570,7 @@ export default function App() {
   const events = useEvents();
   const leaderboard = useLeaderboardRows();
   const season = useSeason();
+  const memberCount = useMemberCount();
   const rulebookText = useRulebookText();
   const instagramPosts = useInstagramPosts();
   const myProfile = useMyProfile(user?.uid);
@@ -570,6 +582,14 @@ export default function App() {
   const allRegistrations = useAllRegistrations(isAdmin);
   const myOrders = useMyOrders(user?.uid);
   const sellerOrders = useSellerOrders(user?.uid, isSeller);
+
+  // Piggybacks on the admin-only user list an admin's browser already has
+  // loaded, to keep the public "Registered bladers" stat honest without
+  // exposing the users collection to public reads — see syncMemberCount.
+  useEffect(() => {
+    if (!isAdmin || allUsers.length === 0) return;
+    syncMemberCount(allUsers.length).catch((err) => console.error("syncMemberCount failed", err));
+  }, [isAdmin, allUsers.length]);
 
   useEffect(() => {
     const onScroll = () => setNav(window.scrollY > 40);
@@ -976,11 +996,10 @@ export default function App() {
       </Reveal>
 
       {/* STATS STRIP */}
-      <div className="max-w-6xl mx-auto px-5 md:px-10 grid grid-cols-2 md:grid-cols-4 gap-6 pb-24">
+      <div className="max-w-6xl mx-auto px-5 md:px-10 grid grid-cols-1 sm:grid-cols-3 gap-6 pb-24">
         {[
-          ["12", "Tournaments hosted"],
-          ["310+", "Registered bladers"],
-          ["4", "Bangalore regions"],
+          [String(events.length), "Tournaments hosted"],
+          [String(memberCount), "Registered bladers"],
           ["1", "WBO-certified judge"],
         ].map(([n, l], i) => (
           <StatCard key={l} value={n} label={l} delay={i * 70} />

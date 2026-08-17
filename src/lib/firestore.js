@@ -156,6 +156,26 @@ export async function setSeason(current) {
   await setDoc(doc(db, "settings", "season"), { current, updatedAt: serverTimestamp() });
 }
 
+// ---------------- public stats (hero "Registered bladers" count) ----------------
+// The users collection is admin-only to list (it holds emails, UPI IDs,
+// blocked status), so a public visitor can't count it directly. Instead an
+// admin's browser — which already fetches the full user list for the Roles
+// tab — quietly keeps this single public number in sync whenever they're
+// signed in, via syncMemberCount below.
+export function listenMemberCount(cb) {
+  return onSnapshot(
+    doc(db, "settings", "stats"),
+    (snap) => cb(snap.exists() ? snap.data().memberCount ?? 0 : 0),
+    (err) => {
+      console.error("listenMemberCount", err);
+      cb(0);
+    }
+  );
+}
+export async function syncMemberCount(count) {
+  await setDoc(doc(db, "settings", "stats"), { memberCount: count, updatedAt: serverTimestamp() }, { merge: true });
+}
+
 export function listenRulebook(cb) {
   return onSnapshot(
     doc(db, "rulebook", "content"),
