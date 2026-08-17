@@ -241,26 +241,15 @@ function EventLegend({ eventDefs }) {
   );
 }
 
-function EventPills({ eventDefs }) {
-  if (!eventDefs.length) return null;
-  const lastKey = eventDefs[eventDefs.length - 1]?.key;
+// Soft blurred color blobs sitting behind the glass panels — frosted glass
+// only reads as "glass" when there's something varied behind it to
+// refract, a flat single-tone background makes backdrop-blur invisible.
+function GlassBackdrop() {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2 mb-10">
-      {eventDefs.map((ev, i) => {
-        const current = ev.key === lastKey;
-        return (
-          <span
-            key={ev.key}
-            className="text-xs font-semibold px-3 py-1.5 rounded-full"
-            style={{
-              border: `1px solid ${current ? "var(--gold)" : "var(--border-strong)"}`,
-              color: current ? "var(--gold)" : "var(--text-faint)",
-            }}
-          >
-            {String(i + 1).padStart(2, "0")} {ev.label}
-          </span>
-        );
-      })}
+    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true" style={{ zIndex: 0 }}>
+      <div style={{ position: "absolute", top: "-10%", left: "0%", width: 420, height: 420, borderRadius: "50%", background: "var(--accent)", opacity: 0.16, filter: "blur(90px)" }} />
+      <div style={{ position: "absolute", top: "10%", right: "0%", width: 380, height: 380, borderRadius: "50%", background: "var(--gold)", opacity: 0.14, filter: "blur(90px)" }} />
+      <div style={{ position: "absolute", bottom: "-5%", left: "30%", width: 340, height: 340, borderRadius: "50%", background: "var(--accent2)", opacity: 0.1, filter: "blur(90px)" }} />
     </div>
   );
 }
@@ -269,12 +258,8 @@ function PodiumCard({ row, rank, eventDefs, featured }) {
   const ringColor = rank === 1 ? "var(--gold)" : rank === 2 ? "var(--silver)" : "var(--bronze)";
   return (
     <div
-      className={`rounded-2xl p-6 flex flex-col items-center text-center ${featured ? "order-first sm:order-none" : ""}`}
-      style={{
-        background: featured ? "linear-gradient(180deg, rgba(255,194,64,0.14), var(--surface) 65%)" : "var(--surface)",
-        border: `1px solid ${featured ? "var(--gold)" : "var(--border)"}`,
-        boxShadow: featured ? "0 0 44px rgba(255,194,64,0.16)" : "none",
-      }}
+      className={`glass${featured ? "-strong" : ""} rounded-3xl p-6 flex flex-col items-center text-center relative ${featured ? "order-first sm:order-none" : ""}`}
+      style={featured ? { boxShadow: "0 12px 40px var(--glass-shadow), inset 0 1px 0 var(--glass-highlight), 0 0 60px rgba(255,194,64,0.18)" } : undefined}
     >
       <div
         className="rounded-full flex items-center justify-center font-bold mb-3"
@@ -306,7 +291,7 @@ function StandingsRow({ row, maxPoints, eventDefs, delay }) {
   const showTie = row.tied && row.rank <= 10;
   return (
     <Reveal delay={delay}>
-      <div className="flex items-center gap-3 sm:gap-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+      <div className="flex items-center gap-3 sm:gap-4 py-3" style={{ borderTop: "1px solid var(--glass-border)" }}>
         <span className="text-sm w-9 sm:w-10 shrink-0 whitespace-nowrap" style={{ color: "var(--text-faint)", fontFamily: "'JetBrains Mono',monospace" }}>
           {showTie ? `T-${row.rank}` : row.rank}
         </span>
@@ -322,7 +307,7 @@ function StandingsRow({ row, maxPoints, eventDefs, delay }) {
               </span>
             )}
           </div>
-          <div className="rounded-full overflow-hidden" style={{ height: 5, background: "var(--border)" }}>
+          <div className="rounded-full overflow-hidden" style={{ height: 5, background: "var(--glass-border)" }}>
             <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${EVENT_DOT_COLOR}, var(--gold))`, borderRadius: 999 }} />
           </div>
         </div>
@@ -349,74 +334,55 @@ function LeaderboardSection({ rows, eventDefs, season }) {
   const lastEvent = eventDefs[eventDefs.length - 1];
 
   return (
-    <div>
-      <Reveal>
-        <div className="text-center mb-3">
-          <span className="text-xs font-semibold" style={{ color: "var(--text-faint)", letterSpacing: 2 }}>
-            BANGALORE BEYBLADE ASSOCIATION · SEASON STANDINGS
-          </span>
-        </div>
-        <h2
-          className="disp font-bold text-center mb-2"
-          style={{
-            fontSize: "clamp(2.2rem,6vw,3.5rem)",
-            background: "linear-gradient(180deg, var(--gold), #C9932A)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          Season {season}
-        </h2>
-        <p className="text-center mb-8" style={{ color: "var(--text-dim)" }}>
-          {eventDefs.length > 0
-            ? `Cumulative points across ${eventDefs.length} events${lastEvent ? ` — ranked through ${lastEvent.label}` : ""}.`
-            : "Points from all sanctioned Bangalore events, merged by ranking."}
-        </p>
-      </Reveal>
+    <div className="relative px-4 py-8 sm:px-8 sm:py-10 rounded-[32px] overflow-hidden">
+      <GlassBackdrop />
+      <div className="relative" style={{ zIndex: 1 }}>
+        <Reveal>
+          <h2 className="disp font-bold text-3xl text-center mb-2">Season {season} Leaderboard</h2>
+          <p className="text-center mb-10" style={{ color: "var(--text-dim)" }}>
+            {eventDefs.length > 0
+              ? `Cumulative points across ${eventDefs.length} events — ranked through ${lastEvent ? lastEvent.label : "the latest event"}.`
+              : "Points from all sanctioned Bangalore events, merged by ranking."}
+          </p>
+        </Reveal>
 
-      <EventPills eventDefs={eventDefs} />
-
-      {topThree.length > 0 && (
-        <>
-          <div className="text-xs font-semibold mb-4" style={{ color: "var(--text-faint)", letterSpacing: 1 }}>01 TOP THREE</div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-stretch mb-12">
+        {topThree.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-stretch mb-10">
             {topThree[1] && <PodiumCard row={topThree[1]} rank={2} eventDefs={eventDefs} />}
             {topThree[0] && <PodiumCard row={topThree[0]} rank={1} eventDefs={eventDefs} featured />}
             {topThree[2] && <PodiumCard row={topThree[2]} rank={3} eventDefs={eventDefs} />}
           </div>
-        </>
-      )}
+        )}
 
-      {rest.length > 0 && (
-        <>
-          <div className="text-xs font-semibold mb-1" style={{ color: "var(--text-faint)", letterSpacing: 1 }}>02 FULL STANDINGS</div>
-          <p className="text-xs mb-4" style={{ color: "var(--text-faint)" }}>
-            Ranked by total points. Bladers with equal totals share a place — the next rank skips to reflect it.
-            Ties are only marked with a TIE badge within the top 10.
-          </p>
-          <div className="rounded-2xl px-4 sm:px-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-            {shownRest.map((row, i) => (
-              <StandingsRow key={row.id} row={row} maxPoints={maxPoints} eventDefs={eventDefs} delay={i * 40} />
-            ))}
+        {rest.length > 0 && (
+          <>
+            <p className="text-xs mb-4" style={{ color: "var(--text-faint)" }}>
+              Ranked by total points. Bladers with equal totals share a place — the next rank skips to reflect
+              it. Ties are only marked with a TIE badge within the top 10.
+            </p>
+            <div className="glass rounded-3xl px-4 sm:px-5">
+              {shownRest.map((row, i) => (
+                <StandingsRow key={row.id} row={row} maxPoints={maxPoints} eventDefs={eventDefs} delay={i * 40} />
+              ))}
+            </div>
+            {hasMore && (
+              <button
+                onClick={() => setExpanded(true)}
+                className="tap glass w-full mt-4 py-3 rounded-full text-sm font-semibold"
+                style={{ color: "var(--text)" }}
+              >
+                Show all {ranked.length} bladers
+              </button>
+            )}
+          </>
+        )}
+
+        {eventDefs.length > 0 && (
+          <div className="mt-10 pt-6 flex justify-center" style={{ borderTop: "1px solid var(--glass-border)" }}>
+            <EventLegend eventDefs={eventDefs} />
           </div>
-          {hasMore && (
-            <button
-              onClick={() => setExpanded(true)}
-              className="tap w-full mt-4 py-3 rounded-full text-sm font-semibold"
-              style={{ background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text)" }}
-            >
-              Show all {ranked.length} bladers
-            </button>
-          )}
-        </>
-      )}
-
-      {eventDefs.length > 0 && (
-        <div className="mt-10 pt-6 flex justify-center" style={{ borderTop: "1px solid var(--border)" }}>
-          <EventLegend eventDefs={eventDefs} />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -984,6 +950,11 @@ export default function App() {
           --silver: #C7CCDA;
           --bronze: #FF9354;
           --danger: #FF6B5A;
+          --glass-bg: rgba(255,255,255,0.06);
+          --glass-bg-strong: rgba(255,255,255,0.1);
+          --glass-border: rgba(255,255,255,0.14);
+          --glass-highlight: rgba(255,255,255,0.22);
+          --glass-shadow: rgba(0,0,0,0.35);
         }
         :root[data-theme="light"] {
           --bg: #F5F6FA;
@@ -1002,6 +973,11 @@ export default function App() {
           --silver: #6B7280;
           --bronze: #E06A2E;
           --danger: #D8332A;
+          --glass-bg: rgba(255,255,255,0.55);
+          --glass-bg-strong: rgba(255,255,255,0.72);
+          --glass-border: rgba(20,22,31,0.08);
+          --glass-highlight: rgba(255,255,255,0.9);
+          --glass-shadow: rgba(20,22,31,0.12);
         }
         @keyframes blade-spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
         @keyframes bey-wobble { 0%,100% { transform: rotate(-22deg);} 50% { transform: rotate(22deg);} }
@@ -1013,6 +989,20 @@ export default function App() {
         .tap { transition: transform 200ms ${EASE}, opacity 150ms ${EASE}, filter 200ms ${EASE}; }
         .tap:active { transform: scale(0.96); opacity:0.85; }
         .lift { transition: transform 260ms ${EASE}, box-shadow 260ms ${EASE}, border-color 260ms ${EASE}; }
+        .glass {
+          background: var(--glass-bg);
+          -webkit-backdrop-filter: blur(24px) saturate(160%);
+          backdrop-filter: blur(24px) saturate(160%);
+          border: 1px solid var(--glass-border);
+          box-shadow: 0 8px 32px var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+        }
+        .glass-strong {
+          background: var(--glass-bg-strong);
+          -webkit-backdrop-filter: blur(28px) saturate(170%);
+          backdrop-filter: blur(28px) saturate(170%);
+          border: 1px solid var(--glass-border);
+          box-shadow: 0 12px 40px var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+        }
         .field-input { transition: border-color 200ms ${EASE}, box-shadow 200ms ${EASE}, transform 150ms ${EASE}; }
         .field-input:focus { outline: none; border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(0,230,195,0.16); }
         .field-input:focus-within { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(0,230,195,0.16); }
