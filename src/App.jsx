@@ -178,40 +178,6 @@ function SpinningBey({ size = 240, speed = 4, className = "", alt = "" }) {
 }
 
 /* ---------- rank ring for leaderboard ---------- */
-function RankRing({ rank, tied }) {
-  const color = rank === 1 ? "var(--gold)" : rank === 2 ? "var(--silver)" : rank === 3 ? "var(--bronze)" : "var(--text-faint)";
-  const label = tied ? `T-${rank}` : rank;
-  return (
-    <div
-      className="relative flex items-center justify-center shrink-0"
-      style={{ width: 44, height: 44 }}
-    >
-      <svg viewBox="0 0 44 44" width="44" height="44" className="absolute inset-0">
-        <circle cx="22" cy="22" r="19" fill="none" stroke="var(--border-strong)" strokeWidth="3" />
-        <circle
-          cx="22"
-          cy="22"
-          r="19"
-          fill="none"
-          stroke={color}
-          strokeWidth="3"
-          strokeDasharray={`${Math.max(10, 120 / rank)} 200`}
-          strokeLinecap="round"
-          transform="rotate(-90 22 22)"
-        />
-      </svg>
-      <span
-        className="relative font-semibold"
-        style={{ fontFamily: "'JetBrains Mono', monospace", color, fontSize: tied ? 11 : 14 }}
-      >
-        {label}
-      </span>
-    </div>
-  );
-}
-
-const LEADERBOARD_COLLAPSED_COUNT = 10;
-
 // Standard competition ranking: equal points share the same rank (e.g.
 // 1,2,3,3,5 — not 1,2,3,3,4), and every row that shares its rank with
 // another is flagged so the UI can mark it as a tie.
@@ -226,51 +192,227 @@ function rankLeaderboard(rows) {
   return ranked.map((row) => ({ ...row, tied: countByRank.get(row.rank) > 1 }));
 }
 
-function LeaderboardList({ rows }) {
+// The most recently-added event (last column found in the sheet) is always
+// picked out in gold — everything earlier reads as a uniform violet — so
+// the dots double as "how far into the season is this."
+const EVENT_DOT_COLOR = "#9B7EF0";
+
+function EventDots({ eventDefs, events, size = 7 }) {
+  if (!eventDefs.length) return null;
+  const lastKey = eventDefs[eventDefs.length - 1]?.key;
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      {eventDefs.map((ev) => {
+        const filled = !!events?.[ev.key];
+        const color = ev.key === lastKey ? "var(--gold)" : EVENT_DOT_COLOR;
+        return (
+          <span
+            key={ev.key}
+            title={ev.label}
+            className="rounded-full shrink-0"
+            style={{
+              width: size,
+              height: size,
+              background: filled ? color : "transparent",
+              border: `1.5px solid ${filled ? color : "var(--border-strong)"}`,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function EventLegend({ eventDefs }) {
+  if (!eventDefs.length) return null;
+  const lastKey = eventDefs[eventDefs.length - 1]?.key;
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs" style={{ color: "var(--text-faint)" }}>
+      {eventDefs.map((ev) => (
+        <div key={ev.key} className="flex items-center gap-1.5">
+          <span
+            className="rounded-full shrink-0"
+            style={{ width: 7, height: 7, background: ev.key === lastKey ? "var(--gold)" : EVENT_DOT_COLOR }}
+          />
+          <span>{ev.short} — {ev.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EventPills({ eventDefs }) {
+  if (!eventDefs.length) return null;
+  const lastKey = eventDefs[eventDefs.length - 1]?.key;
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2 mb-10">
+      {eventDefs.map((ev, i) => {
+        const current = ev.key === lastKey;
+        return (
+          <span
+            key={ev.key}
+            className="text-xs font-semibold px-3 py-1.5 rounded-full"
+            style={{
+              border: `1px solid ${current ? "var(--gold)" : "var(--border-strong)"}`,
+              color: current ? "var(--gold)" : "var(--text-faint)",
+            }}
+          >
+            {String(i + 1).padStart(2, "0")} {ev.label}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function PodiumCard({ row, rank, eventDefs, featured }) {
+  const ringColor = rank === 1 ? "var(--gold)" : rank === 2 ? "var(--silver)" : "var(--bronze)";
+  return (
+    <div
+      className={`rounded-2xl p-6 flex flex-col items-center text-center ${featured ? "order-first sm:order-none" : ""}`}
+      style={{
+        background: featured ? "linear-gradient(180deg, rgba(255,194,64,0.14), var(--surface) 65%)" : "var(--surface)",
+        border: `1px solid ${featured ? "var(--gold)" : "var(--border)"}`,
+        boxShadow: featured ? "0 0 44px rgba(255,194,64,0.16)" : "none",
+      }}
+    >
+      <div
+        className="rounded-full flex items-center justify-center font-bold mb-3"
+        style={{
+          width: featured ? 56 : 44,
+          height: featured ? 56 : 44,
+          border: `2px solid ${ringColor}`,
+          color: ringColor,
+          fontSize: featured ? 22 : 16,
+          fontFamily: "'JetBrains Mono',monospace",
+        }}
+      >
+        {rank}
+      </div>
+      <div className="font-semibold mb-1 truncate max-w-full" style={{ fontSize: featured ? 18 : 15 }}>{row.name}</div>
+      <div className="disp font-bold mb-3" style={{ fontSize: featured ? 34 : 26, color: ringColor }}>
+        {row.points}<span className="text-sm font-normal ml-1" style={{ color: "var(--text-faint)" }}>pts</span>
+      </div>
+      <EventDots eventDefs={eventDefs} events={row.events} />
+    </div>
+  );
+}
+
+function StandingsRow({ row, maxPoints, eventDefs, delay }) {
+  const pct = maxPoints > 0 ? Math.max(4, (row.points / maxPoints) * 100) : 0;
+  return (
+    <Reveal delay={delay}>
+      <div className="flex items-center gap-3 sm:gap-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+        <span className="text-sm w-9 sm:w-10 shrink-0 whitespace-nowrap" style={{ color: "var(--text-faint)", fontFamily: "'JetBrains Mono',monospace" }}>
+          {row.tied ? `T-${row.rank}` : row.rank}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="font-semibold text-sm truncate">{row.name}</span>
+            {row.tied && (
+              <span
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
+                style={{ border: "1px solid var(--danger)", color: "var(--danger)" }}
+              >
+                TIE
+              </span>
+            )}
+          </div>
+          <div className="rounded-full overflow-hidden" style={{ height: 5, background: "var(--border)" }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${EVENT_DOT_COLOR}, var(--gold))`, borderRadius: 999 }} />
+          </div>
+        </div>
+        <EventDots eventDefs={eventDefs} events={row.events} />
+        <span className="text-sm font-bold w-10 sm:w-12 text-right shrink-0" style={{ color: "var(--gold)", fontFamily: "'JetBrains Mono',monospace" }}>
+          {row.points}
+        </span>
+      </div>
+    </Reveal>
+  );
+}
+
+const LEADERBOARD_TOP_COUNT = 3;
+const LEADERBOARD_COLLAPSED_REST = 7; // + the 3 podium rows = 10 visible by default
+
+function LeaderboardSection({ rows, eventDefs, season }) {
   const [expanded, setExpanded] = useState(false);
   const ranked = rankLeaderboard(rows);
-  const shown = expanded ? ranked : ranked.slice(0, LEADERBOARD_COLLAPSED_COUNT);
-  const hasMore = ranked.length > LEADERBOARD_COLLAPSED_COUNT;
+  const topThree = ranked.slice(0, LEADERBOARD_TOP_COUNT);
+  const rest = ranked.slice(LEADERBOARD_TOP_COUNT);
+  const shownRest = expanded ? rest : rest.slice(0, LEADERBOARD_COLLAPSED_REST);
+  const hasMore = rest.length > shownRest.length;
+  const maxPoints = ranked[0]?.points || 1;
+  const lastEvent = eventDefs[eventDefs.length - 1];
 
   return (
-    <>
-      <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-        {shown.map((row, i) => (
-          <Reveal key={row.id} delay={i * 50}>
-            <div
-              className="flex items-center gap-4 px-5 py-4"
-              style={{ borderTop: i ? "1px solid var(--border)" : "none" }}
-            >
-              <RankRing rank={row.rank} tied={row.tied} />
-              <div className="flex-1">
-                <div className="font-semibold flex items-center gap-2 flex-wrap">
-                  {row.name}
-                  {row.tied && (
-                    <span
-                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                      style={{ background: "#FF93541A", color: "var(--bronze)" }}
-                    >
-                      TIE
-                    </span>
-                  )}
-                </div>
-                {row.region && <div className="text-xs" style={{ color: "var(--text-faint)" }}>{row.region}</div>}
-              </div>
-              <div className="disp font-bold text-lg" style={{ color: "var(--accent-ink)", width: 70, textAlign: "right" }}>{row.points}</div>
-            </div>
-          </Reveal>
-        ))}
-      </div>
-      {hasMore && (
-        <button
-          onClick={() => setExpanded((e) => !e)}
-          className="tap w-full mt-4 py-3 rounded-full text-sm font-semibold"
-          style={{ background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text)" }}
+    <div>
+      <Reveal>
+        <div className="text-center mb-3">
+          <span className="text-xs font-semibold" style={{ color: "var(--text-faint)", letterSpacing: 2 }}>
+            BANGALORE BEYBLADE ASSOCIATION · SEASON STANDINGS
+          </span>
+        </div>
+        <h2
+          className="disp font-bold text-center mb-2"
+          style={{
+            fontSize: "clamp(2.2rem,6vw,3.5rem)",
+            background: "linear-gradient(180deg, var(--gold), #C9932A)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
         >
-          {expanded ? "Show less" : `Show all ${rows.length} bladers`}
-        </button>
+          Season {season}
+        </h2>
+        <p className="text-center mb-8" style={{ color: "var(--text-dim)" }}>
+          {eventDefs.length > 0
+            ? `Cumulative points across ${eventDefs.length} events${lastEvent ? ` — ranked through ${lastEvent.label}` : ""}.`
+            : "Points from all sanctioned Bangalore events, merged by ranking."}
+        </p>
+      </Reveal>
+
+      <EventPills eventDefs={eventDefs} />
+
+      {topThree.length > 0 && (
+        <>
+          <div className="text-xs font-semibold mb-4" style={{ color: "var(--text-faint)", letterSpacing: 1 }}>01 TOP THREE</div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-stretch mb-12">
+            {topThree[1] && <PodiumCard row={topThree[1]} rank={2} eventDefs={eventDefs} />}
+            {topThree[0] && <PodiumCard row={topThree[0]} rank={1} eventDefs={eventDefs} featured />}
+            {topThree[2] && <PodiumCard row={topThree[2]} rank={3} eventDefs={eventDefs} />}
+          </div>
+        </>
       )}
-    </>
+
+      {rest.length > 0 && (
+        <>
+          <div className="text-xs font-semibold mb-1" style={{ color: "var(--text-faint)", letterSpacing: 1 }}>02 FULL STANDINGS</div>
+          <p className="text-xs mb-4" style={{ color: "var(--text-faint)" }}>
+            Ranked by total points. Bladers with equal totals share a place — the next rank skips to reflect it.
+          </p>
+          <div className="rounded-2xl px-4 sm:px-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            {shownRest.map((row, i) => (
+              <StandingsRow key={row.id} row={row} maxPoints={maxPoints} eventDefs={eventDefs} delay={i * 40} />
+            ))}
+          </div>
+          {hasMore && (
+            <button
+              onClick={() => setExpanded(true)}
+              className="tap w-full mt-4 py-3 rounded-full text-sm font-semibold"
+              style={{ background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text)" }}
+            >
+              Show all {ranked.length} bladers
+            </button>
+          )}
+        </>
+      )}
+
+      {eventDefs.length > 0 && (
+        <div className="mt-10 pt-6 flex justify-center" style={{ borderTop: "1px solid var(--border)" }}>
+          <EventLegend eventDefs={eventDefs} />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -333,44 +475,78 @@ function parseCsvRow(line) {
   return cells;
 }
 
-// Only the Blader Name and TOTAL columns are used — the sheet's own TOTAL
-// is trusted as-is rather than re-derived from the per-event columns, so
-// this can't drift from what's visually in the spreadsheet.
+// Known event column-pairs, matched by a short keyword against the header
+// text rather than a fixed position — tolerates the sheet's inconsistent
+// wording ("Inferno Game Points" vs "Blade Requiem Points" vs "June
+// Attendance") as long as the event's name appears somewhere in its first
+// column. "domin" (not "dominion") deliberately matches the sheet's typo
+// ("Dominiion"). This only drives the decorative per-event dots below —
+// the actual points/ranking always come from the TOTAL column, so a
+// column this can't find just means that event's dot never lights up,
+// not a wrong score.
+const LEADERBOARD_EVENT_DEFS = [
+  { key: "inferno", label: "Inferno", short: "I" },
+  { key: "veil", label: "Ash & Veil", short: "A" },
+  { key: "requiem", label: "Blade Requiem", short: "B" },
+  { key: "genesis", label: "Genesis", short: "G" },
+  { key: "domin", label: "Dominion", short: "D" },
+];
+
+function findEventColumns(header) {
+  return LEADERBOARD_EVENT_DEFS
+    .map((def) => ({ ...def, idx: header.findIndex((h) => h.includes(def.key)) }))
+    .filter((d) => d.idx !== -1);
+}
+
+// Only the Blader Name and TOTAL columns feed the actual points/ranking —
+// the sheet's own TOTAL is trusted as-is rather than re-derived from the
+// per-event columns, so that can't drift from what's visually in the
+// spreadsheet. The per-event columns are read separately, only to light up
+// participation dots.
 async function fetchSheetLeaderboard() {
   const url = `https://docs.google.com/spreadsheets/d/${LEADERBOARD_SHEET_ID}/export?format=csv&gid=${LEADERBOARD_SHEET_GID}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Sheet fetch failed: ${res.status}`);
   const text = await res.text();
   const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
+  if (lines.length < 2) return { rows: [], eventDefs: [] };
   const header = parseCsvRow(lines[0]).map((h) => h.trim().toLowerCase());
   const bladerIdx = header.findIndex((h) => h.includes("blader"));
   const totalIdx = header.findIndex((h) => h === "total" || h.includes("total"));
-  if (bladerIdx === -1 || totalIdx === -1) return [];
-  return lines
+  if (bladerIdx === -1 || totalIdx === -1) return { rows: [], eventDefs: [] };
+  const eventCols = findEventColumns(header);
+  const num = (s) => parseInt((s || "").trim(), 10) || 0;
+  const rows = lines
     .slice(1)
     .map((line) => {
       const cols = parseCsvRow(line);
       const name = (cols[bladerIdx] || "").trim();
-      const points = parseInt((cols[totalIdx] || "0").trim(), 10) || 0;
-      return { name, points };
+      const points = num(cols[totalIdx]);
+      const events = {};
+      eventCols.forEach((ev) => {
+        events[ev.key] = num(cols[ev.idx]) + num(cols[ev.idx + 1]) > 0;
+      });
+      return { name, points, events };
     })
     .filter((r) => r.name && r.points > 0)
     .sort((a, b) => b.points - a.points);
+  return { rows, eventDefs: eventCols.map(({ key, label, short }) => ({ key, label, short })) };
 }
 
 const SHEET_REFRESH_MS = 5 * 60 * 1000;
 
 function useLiveLeaderboard() {
   const [rows, setRows] = useState([]);
+  const [eventDefs, setEventDefs] = useState([]);
   const [status, setStatus] = useState("loading"); // loading | ok | error
   const [lastSynced, setLastSynced] = useState(null);
 
   const refresh = useCallback(async () => {
     setStatus((s) => (s === "ok" ? "refreshing" : "loading"));
     try {
-      const data = await fetchSheetLeaderboard();
-      setRows(data.map((r, i) => ({ id: `sheet-${i}`, name: r.name, region: "", points: r.points })));
+      const { rows: data, eventDefs: defs } = await fetchSheetLeaderboard();
+      setRows(data.map((r, i) => ({ id: `sheet-${i}`, name: r.name, region: "", points: r.points, events: r.events })));
+      setEventDefs(defs);
       setStatus("ok");
       setLastSynced(new Date());
     } catch (err) {
@@ -385,7 +561,7 @@ function useLiveLeaderboard() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  return { rows, status, lastSynced, refresh };
+  return { rows, eventDefs, status, lastSynced, refresh };
 }
 
 function useSeason() {
@@ -640,7 +816,7 @@ export default function App() {
   const [page, setPage] = useState(readPage);
 
   const events = useEvents();
-  const { rows: sheetRows, status: sheetStatus, lastSynced: sheetSynced, refresh: refreshSheet } = useLiveLeaderboard();
+  const { rows: sheetRows, eventDefs: leaderboardEventDefs, status: sheetStatus, lastSynced: sheetSynced, refresh: refreshSheet } = useLiveLeaderboard();
   const season = useSeason();
   const leaderboard = sheetRows.map((r) => ({ ...r, season }));
   const memberCount = useMemberCount();
@@ -1231,18 +1407,14 @@ export default function App() {
 
       {/* LEADERBOARD */}
       <section id="leaderboard" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
-        <Reveal>
-          <h2 className="disp font-bold text-3xl mb-2">Season {season} Leaderboard</h2>
-          <p style={{ color: "var(--text-dim)" }} className="mb-10">Points from all sanctioned Bangalore events, merged by ranking.</p>
-        </Reveal>
-        {(() => {
-          const seasonRows = leaderboard.filter((row) => (row.season ?? 1) === season);
-          return seasonRows.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--text-faint)" }}>No standings posted yet.</p>
-          ) : (
-            <LeaderboardList rows={seasonRows} />
-          );
-        })()}
+        {leaderboard.length === 0 ? (
+          <Reveal>
+            <h2 className="disp font-bold text-3xl mb-2 text-center">Season {season} Leaderboard</h2>
+            <p className="text-sm text-center" style={{ color: "var(--text-faint)" }}>No standings posted yet.</p>
+          </Reveal>
+        ) : (
+          <LeaderboardSection rows={leaderboard} eventDefs={leaderboardEventDefs} season={season} />
+        )}
       </section>
 
       {/* RULEBOOK */}
