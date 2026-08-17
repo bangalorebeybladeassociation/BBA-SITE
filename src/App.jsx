@@ -1272,76 +1272,7 @@ export default function App() {
         {events.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--text-faint)" }}>No events posted yet — check back soon.</p>
         ) : (
-        <div className="relative pl-8" style={{ borderLeft: "2px solid var(--border)" }}>
-          {events.map((t, i) => (
-            <Reveal key={t.id} delay={i * 80} className="relative mb-10 last:mb-0">
-              <div
-                className="absolute rounded-full"
-                style={{
-                  left: -40,
-                  top: 6,
-                  width: 14,
-                  height: 14,
-                  background: t.status === "upcoming" ? t.accent || "#FF4425" : "var(--text-faint)",
-                  boxShadow: `0 0 0 4px var(--bg)`,
-                }}
-              />
-              <div
-                className="lift p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-4"
-                style={{
-                  background: t.status === "upcoming" ? "var(--surface)" : "var(--bg)",
-                  border: `1px solid ${t.status === "upcoming" ? "var(--border)" : "var(--border-strong)"}`,
-                  opacity: t.status === "upcoming" ? 1 : 0.7,
-                }}
-              >
-                <div
-                  className="rounded-xl shrink-0 flex items-center justify-center"
-                  style={{ width: 64, height: 64, background: "var(--border)" }}
-                >
-                  <SpinningBey size={40} speed={i % 2 ? 2.2 : 3} />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <h3 className="disp font-semibold text-xl">{t.name}</h3>
-                    <span
-                      className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                      style={{
-                        background: t.status === "upcoming" ? "#00E6C31A" : "#7A81941A",
-                        color: t.status === "upcoming" ? "var(--accent-ink)" : "var(--text-dim)",
-                      }}
-                    >
-                      {t.status === "upcoming" ? "Upcoming" : "Completed"}
-                    </span>
-                    <AgeBadge ageCategories={t.ageCategories} />
-                  </div>
-                  <p className="text-sm mt-1" style={{ color: "var(--text-dim)" }}>{formatEventDate(t.date)} · {t.venue}</p>
-                  <p className="text-sm" style={{ color: "var(--text-faint)" }}>{t.format}</p>
-                  <PrizeSummary prizes={t.prizes} ageCategories={t.ageCategories} />
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  {t.status === "upcoming" && (
-                    <button
-                      onClick={() => openRegistration(t)}
-                      className="tap px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap"
-                      style={{ background: "var(--accent2)", color: "#0A0D18" }}
-                    >
-                      Register
-                    </button>
-                  )}
-                  <a
-                    href={t.bracketUrl || "https://challonge.com/"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="tap px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap"
-                    style={{ border: "1px solid var(--border-strong)" }}
-                  >
-                    Bracket ↗
-                  </a>
-                </div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
+          <EventsTimeline events={events} onRegister={openRegistration} />
         )}
       </section>
 
@@ -2675,6 +2606,110 @@ function PrizeSummary({ prizes, ageCategories, className = "text-sm mt-1" }) {
         </div>
       ))}
     </div>
+  );
+}
+
+// Every upcoming event stays visible (small in number, high-stakes — people
+// need to see what's next and register), but past events collapse to the
+// most recent couple by default once there's a real backlog of them, with
+// a "show more" toggle — the same collapse pattern already used for the
+// leaderboard's full standings, rather than introducing a new horizontal-
+// scroll interaction just for this section.
+const EVENTS_PAST_COLLAPSED_COUNT = 2;
+
+function EventsTimeline({ events, onRegister }) {
+  const [expanded, setExpanded] = useState(false);
+  const upcoming = events.filter((t) => t.status === "upcoming");
+  const past = events.filter((t) => t.status !== "upcoming");
+  const shownPast = expanded ? past : past.slice(0, EVENTS_PAST_COLLAPSED_COUNT);
+  const hiddenCount = past.length - shownPast.length;
+  // `events` is already sorted latest-first, and upcoming (future-dated)
+  // events always sort ahead of past ones in that order, so concatenating
+  // the two filtered lists preserves the original chronological order.
+  const shown = [...upcoming, ...shownPast];
+
+  return (
+    <>
+      <div className="relative pl-8" style={{ borderLeft: "2px solid var(--border)" }}>
+        {shown.map((t, i) => (
+          <Reveal key={t.id} delay={i * 80} className="relative mb-10 last:mb-0">
+            <div
+              className="absolute rounded-full"
+              style={{
+                left: -40,
+                top: 6,
+                width: 14,
+                height: 14,
+                background: t.status === "upcoming" ? t.accent || "#FF4425" : "var(--text-faint)",
+                boxShadow: `0 0 0 4px var(--bg)`,
+              }}
+            />
+            <div
+              className="lift p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-4"
+              style={{
+                background: t.status === "upcoming" ? "var(--surface)" : "var(--bg)",
+                border: `1px solid ${t.status === "upcoming" ? "var(--border)" : "var(--border-strong)"}`,
+                opacity: t.status === "upcoming" ? 1 : 0.7,
+              }}
+            >
+              <div
+                className="rounded-xl shrink-0 flex items-center justify-center"
+                style={{ width: 64, height: 64, background: "var(--border)" }}
+              >
+                <SpinningBey size={40} speed={i % 2 ? 2.2 : 3} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h3 className="disp font-semibold text-xl">{t.name}</h3>
+                  <span
+                    className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                    style={{
+                      background: t.status === "upcoming" ? "#00E6C31A" : "#7A81941A",
+                      color: t.status === "upcoming" ? "var(--accent-ink)" : "var(--text-dim)",
+                    }}
+                  >
+                    {t.status === "upcoming" ? "Upcoming" : "Completed"}
+                  </span>
+                  <AgeBadge ageCategories={t.ageCategories} />
+                </div>
+                <p className="text-sm mt-1" style={{ color: "var(--text-dim)" }}>{formatEventDate(t.date)} · {t.venue}</p>
+                <p className="text-sm" style={{ color: "var(--text-faint)" }}>{t.format}</p>
+                <PrizeSummary prizes={t.prizes} ageCategories={t.ageCategories} />
+              </div>
+              <div className="flex gap-2 shrink-0">
+                {t.status === "upcoming" && (
+                  <button
+                    onClick={() => onRegister(t)}
+                    className="tap px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap"
+                    style={{ background: "var(--accent2)", color: "#0A0D18" }}
+                  >
+                    Register
+                  </button>
+                )}
+                <a
+                  href={t.bracketUrl || "https://challonge.com/"}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="tap px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap"
+                  style={{ border: "1px solid var(--border-strong)" }}
+                >
+                  Bracket ↗
+                </a>
+              </div>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="tap w-full mt-2 py-3 rounded-full text-sm font-semibold"
+          style={{ background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text)" }}
+        >
+          Show {hiddenCount} more past event{hiddenCount === 1 ? "" : "s"}
+        </button>
+      )}
+    </>
   );
 }
 
