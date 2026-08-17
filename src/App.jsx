@@ -347,15 +347,23 @@ function useComputedLeaderboard(players, eventScores, events) {
   return useMemo(() => {
     const eventSeasonById = new Map(events.map((e) => [e.id, e.season ?? 1]));
     const totals = new Map(); // `${playerId}::${season}` -> points
+    const hasRealScore = new Set(); // keys with at least one real eventScores entry
     for (const s of eventScores) {
       const season = eventSeasonById.get(s.eventId);
       if (season == null) continue; // score for a since-deleted event
       const key = `${s.playerId}::${season}`;
       totals.set(key, (totals.get(key) || 0) + (Number(s.points) || 0));
+      hasRealScore.add(key);
     }
+    // A migrated baseline is a stand-in for events that haven't been
+    // re-entered one-by-one yet. The moment any real eventScores exist for
+    // that player's baseline season, the granular data replaces it entirely
+    // instead of adding to it — otherwise backfilling the very events the
+    // baseline already covered double-counts them.
     for (const p of players) {
       if (p.baselinePoints && p.baselineSeason != null) {
         const key = `${p.id}::${p.baselineSeason}`;
+        if (hasRealScore.has(key)) continue;
         totals.set(key, (totals.get(key) || 0) + Number(p.baselinePoints));
       }
     }
