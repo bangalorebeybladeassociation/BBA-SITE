@@ -369,13 +369,6 @@ function useSellerOrders(uid, enabled) {
 
 /* ================= DATA ================= */
 
-const VIDEOS = [
-  { id: "v1", title: "Whitefield Winter Clash — Grand Final", dur: "4:12" },
-  { id: "v2", title: "Judge's Cut: Burst Finish Rulings Explained", dur: "6:30" },
-  { id: "v3", title: "Indiranagar Series #4 Highlights", dur: "3:47" },
-  { id: "v4", title: "Launcher Tech: Pull-Speed Comparison", dur: "5:02" },
-];
-
 // Product taxonomy: what kind of item, its condition, and — only for
 // Beyblades themselves — the gameplay archetype.
 const ITEM_TYPES = ["Beyblade", "Stadium", "Launcher", "Parts"];
@@ -743,7 +736,7 @@ export default function App() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             ["#events", "Events", "Every event, past and upcoming, with live brackets"],
-            ["#media", "Media", "Match highlights and the Instagram feed"],
+            ["#media", "Media", "Photos and highlights from our Instagram"],
             ["#leaderboard", "Leaderboard", "Season 3 rankings across all events"],
             ["#market", "Shop", "Buy parts, or sell your own as an approved seller"],
           ].map(([href, title, desc]) => (
@@ -843,50 +836,18 @@ export default function App() {
       {/* MEDIA */}
       <section id="media" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
         <Reveal>
-          <h2 className="disp font-bold text-3xl mb-2">Media</h2>
-          <p style={{ color: "#9AA1B4" }} className="mb-10">Match highlights, judge breakdowns, and our Instagram feed.</p>
-        </Reveal>
-
-        <Reveal>
-          <h3 className="disp font-semibold text-xl mb-5">Promo & Match Footage</h3>
-        </Reveal>
-        <div className="grid sm:grid-cols-2 gap-6 mb-16">
-          {VIDEOS.map((v, i) => (
-            <Reveal key={v.id} delay={i * 70}>
-              <button
-                onClick={() => fireToast("Connect a video source (YouTube/Drive) to play this")}
-                className="tap lift w-full text-left rounded-2xl overflow-hidden"
-                style={{ background: "#141827", border: "1px solid #1C2136" }}
-              >
-                <div
-                  className="relative flex items-center justify-center"
-                  style={{ height: 170, background: "linear-gradient(135deg,#1C2136,#0A0D18)" }}
-                >
-                  <div
-                    className="rounded-full flex items-center justify-center"
-                    style={{ width: 54, height: 54, background: "#FF4425" }}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20" fill="#0A0D18" /></svg>
-                  </div>
-                  <span className="absolute bottom-2 right-3 text-xs px-2 py-0.5 rounded" style={{ background: "#0A0D18CC" }}>{v.dur}</span>
-                </div>
-                <div className="p-4">
-                  <h4 className="font-semibold text-sm">{v.title}</h4>
-                </div>
-              </button>
-            </Reveal>
-          ))}
-        </div>
-
-        <Reveal>
-          <div className="flex items-center gap-2 mb-5 flex-wrap">
-            <Icon name="gallery" size={20} />
-            <h3 className="disp font-semibold text-xl">From Instagram</h3>
+          <div className="flex items-end justify-between gap-3 flex-wrap mb-10">
+            <div>
+              <h2 className="disp font-bold text-3xl mb-2 flex items-center gap-2.5">
+                <Icon name="gallery" size={26} /> Media
+              </h2>
+              <p style={{ color: "#9AA1B4" }}>Photos and highlights from our Instagram.</p>
+            </div>
             <a
               href="https://www.instagram.com/bangalore_beyblade_association/"
               target="_blank"
               rel="noreferrer"
-              className="tap text-xs font-semibold ml-auto"
+              className="tap text-sm font-semibold"
               style={{ color: "#00E6C3" }}
             >
               @bangalore_beyblade_association ↗
