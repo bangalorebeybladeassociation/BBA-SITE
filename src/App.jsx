@@ -1657,6 +1657,38 @@ function UpiPayButton({ amount, note }) {
   );
 }
 
+// Silently submits to a hidden Google Form on every registration, whose
+// existing Zap (Google Forms trigger -> WhatsApp group message) is how
+// the club gets notified — no backend needed, same no-cors form-post
+// trick used by static sites without a server-side contact form.
+const REGISTRATION_NOTIFY_FORM_ID = "1FAIpQLSfwTSmkYniXT6ckvazt49zc8gylQFbFrthZufqU7hpAjIK2qw";
+const REGISTRATION_NOTIFY_ENTRIES = {
+  participantName: "entry.536987989",
+  bladerName: "entry.307278227",
+  phone: "entry.591567370",
+  age: "entry.1579085013",
+  hasProducts: "entry.1246421358",
+  hasVisitor: "entry.1509554680",
+  visitorNames: "entry.185224915",
+  agreed: "entry.828234838",
+  amount: "entry.1629333670",
+};
+
+function notifyRegistrationForm(data) {
+  const body = new URLSearchParams();
+  for (const [key, entry] of Object.entries(REGISTRATION_NOTIFY_ENTRIES)) {
+    body.set(entry, data[key] ?? "");
+  }
+  // no-cors: the response is opaque either way, so this is fire-and-forget —
+  // a failed notification should never block or fail the real registration.
+  fetch(`https://docs.google.com/forms/d/e/${REGISTRATION_NOTIFY_FORM_ID}/formResponse`, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  }).catch((err) => console.error("notifyRegistrationForm failed", err));
+}
+
 const REGISTRATION_TERMS = [
   "All registrations are final and non-refundable.",
   "If any non-participants (spectators or accompanying guests) are joining along with participants, please make the payment for everyone in a single transaction to help us track payments efficiently.",
@@ -1742,6 +1774,17 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
         visitorNames: form.hasVisitor === "yes" ? visitorNames : [],
         paymentAmount: totalDue,
         agreed: true,
+      });
+      notifyRegistrationForm({
+        participantName: form.participantName,
+        bladerName: form.bladerName,
+        phone: form.phone,
+        age: form.age === "9-12" ? "9–12" : form.age === "13-17" ? "13–17" : "18 and above",
+        hasProducts: form.hasProducts === "yes" ? "Yes" : "No",
+        hasVisitor: form.hasVisitor === "yes" ? "Yes" : "No",
+        visitorNames: visitorNames.join(", ") || "—",
+        agreed: "Agree",
+        amount: `${totalDue}(${form.participantType === "visitor" ? "Visitor" : "Player"}${visitorCount > 0 ? ` + ${visitorCount} visitor${visitorCount === 1 ? "" : "s"}` : ""})`,
       });
       setDone(true);
     } catch (err) {
