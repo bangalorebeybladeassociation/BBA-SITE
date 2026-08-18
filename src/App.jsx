@@ -769,8 +769,30 @@ function useSmoothScroll() {
     };
     document.addEventListener("click", onClickTop);
 
+    // Mobile keyboards scroll a focused field into view natively — Lenis's
+    // own raf loop fights that (it keeps re-asserting its last virtual
+    // scroll position), snapping the page back and hiding the field you
+    // just tapped. Pausing Lenis for the duration of the focus lets the
+    // browser's native keyboard-avoidance scroll win; resize() on blur
+    // re-measures the page since the keyboard closing can change its height.
+    const isFormField = (el) =>
+      !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+    const onFocusIn = (e) => {
+      if (isFormField(e.target)) lenis.stop();
+    };
+    const onFocusOut = (e) => {
+      if (isFormField(e.target)) {
+        lenis.start();
+        lenis.resize();
+      }
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+
     return () => {
       document.removeEventListener("click", onClickTop);
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
       lenis.destroy();
     };
   }, []);
