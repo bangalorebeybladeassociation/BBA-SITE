@@ -2487,21 +2487,21 @@ function AdminRoles({ fireToast, users }) {
           {users.length === 0 ? "No one has signed in yet." : "No matches."}
         </p>
       ) : (
-        <div className="rounded-2xl overflow-x-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <div className="rounded-2xl overflow-x-auto snap-x snap-proximity" style={{ background: "var(--surface)", border: "1px solid var(--border)", WebkitOverflowScrolling: "touch" }}>
           <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ color: "var(--text-faint)", textAlign: "left" }}>
-                <th className="px-4 py-3 font-medium whitespace-nowrap">Name</th>
-                <th className="px-4 py-3 font-medium whitespace-nowrap">Email</th>
-                <th className="px-4 py-3 font-medium whitespace-nowrap">Last login</th>
-                <th className="px-4 py-3 font-medium whitespace-nowrap">Role</th>
-                <th className="px-4 py-3 font-medium whitespace-nowrap">Actions</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap snap-start">Name</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap snap-start">Email</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap snap-start">Last login</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap snap-start">Role</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap snap-start">Actions</th>
               </tr>
             </thead>
             <tbody>
               {shown.map((u) => (
                 <tr key={u.uid} style={{ borderTop: "1px solid var(--border)" }}>
-                  <td className="px-4 py-3 font-medium whitespace-nowrap">
+                  <td className="px-4 py-3 font-medium whitespace-nowrap snap-start">
                     {u.name}
                     {u.uid === currentUser?.uid && (
                       <span className="ml-2 text-xs" style={{ color: "var(--text-faint)" }}>(you)</span>
@@ -2515,11 +2515,11 @@ function AdminRoles({ fireToast, users }) {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{u.email}</td>
-                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>
+                  <td className="px-4 py-3 whitespace-nowrap snap-start" style={{ color: "var(--text-dim)" }}>{u.email}</td>
+                  <td className="px-4 py-3 whitespace-nowrap snap-start" style={{ color: "var(--text-dim)" }}>
                     {formatLastLogin(u.lastLoginAt || u.updatedAt)}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 snap-start">
                     <div className="flex gap-1.5 flex-wrap">
                       {["user", "seller", "admin"].map((r) => (
                         <button
@@ -2538,7 +2538,7 @@ function AdminRoles({ fireToast, users }) {
                       ))}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 snap-start snap-always">
                     {u.uid === currentUser?.uid ? (
                       <span className="text-xs" style={{ color: "var(--text-faint)" }}>—</span>
                     ) : confirmUid === u.uid ? (
@@ -3022,11 +3022,11 @@ function AdminRegistrations({ registrations, onSetStatus, onDelete }) {
           {registrations.length === 0 ? "No registrations yet." : "No matches."}
         </p>
       ) : (
-        <div className="rounded-2xl overflow-x-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <div className="rounded-2xl overflow-x-auto snap-x snap-proximity" style={{ background: "var(--surface)", border: "1px solid var(--border)", WebkitOverflowScrolling: "touch" }}>
           <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ color: "var(--text-faint)", textAlign: "left" }}>
-                <th className="px-4 py-3 font-medium whitespace-nowrap">Registered</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap snap-start">Registered</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Event</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Participant</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Blader name</th>
@@ -3037,13 +3037,13 @@ function AdminRegistrations({ registrations, onSetStatus, onDelete }) {
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Visitor</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Paid (₹)</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Status</th>
-                <th className="px-4 py-3 font-medium whitespace-nowrap">Action</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap snap-start">Action</th>
               </tr>
             </thead>
             <tbody>
               {shown.map((r) => (
                 <tr key={r.id} style={{ borderTop: "1px solid var(--border)" }}>
-                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{formatLastLogin(r.createdAt)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap snap-start" style={{ color: "var(--text-dim)" }}>{formatLastLogin(r.createdAt)}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{r.eventName}</td>
                   <td className="px-4 py-3 font-medium whitespace-nowrap">{r.participantName}</td>
                   <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{r.bladerName}</td>
@@ -3061,7 +3061,7 @@ function AdminRegistrations({ registrations, onSetStatus, onDelete }) {
                     {r.paymentAmount || "—"}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap"><RegistrationStatusBadge status={r.status} /></td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className="px-4 py-3 whitespace-nowrap snap-start snap-always">
                     <div className="flex gap-1.5">
                       {r.status !== "confirmed" && (
                         <button
