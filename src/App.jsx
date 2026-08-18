@@ -2643,7 +2643,7 @@ function SegmentedToggle({ options, value, onChange }) {
   const idx = options.findIndex((o) => o.value === value);
   const pct = 100 / options.length;
   return (
-    <div className="relative inline-flex p-1 rounded-full" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
+    <div className="relative flex w-full p-1 rounded-full" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
       {idx >= 0 && (
         <div
           aria-hidden="true"
@@ -2661,7 +2661,7 @@ function SegmentedToggle({ options, value, onChange }) {
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
-          className="tap relative px-4 py-1.5 rounded-full text-xs font-semibold"
+          className="tap relative flex-1 min-w-0 px-2 py-1.5 rounded-full text-xs font-semibold truncate"
           style={{ color: value === o.value ? "#0A0D18" : "var(--text-dim)", transition: `color 220ms ${EASE}`, zIndex: 1 }}
         >
           {o.label}
