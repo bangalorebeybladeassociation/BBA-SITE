@@ -769,8 +769,30 @@ function useSmoothScroll() {
     };
     document.addEventListener("click", onClickTop);
 
+    // Mobile keyboards scroll a focused field into view natively — Lenis's
+    // own raf loop fights that (it keeps re-asserting its last virtual
+    // scroll position), snapping the page back and hiding the field you
+    // just tapped. Pausing Lenis for the duration of the focus lets the
+    // browser's native keyboard-avoidance scroll win; resize() on blur
+    // re-measures the page since the keyboard closing can change its height.
+    const isFormField = (el) =>
+      !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+    const onFocusIn = (e) => {
+      if (isFormField(e.target)) lenis.stop();
+    };
+    const onFocusOut = (e) => {
+      if (isFormField(e.target)) {
+        lenis.start();
+        lenis.resize();
+      }
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+
     return () => {
       document.removeEventListener("click", onClickTop);
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
       lenis.destroy();
     };
   }, []);
@@ -2621,7 +2643,7 @@ function SegmentedToggle({ options, value, onChange }) {
   const idx = options.findIndex((o) => o.value === value);
   const pct = 100 / options.length;
   return (
-    <div className="relative inline-flex p-1 rounded-full" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
+    <div className="relative flex w-full p-1 rounded-full" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
       {idx >= 0 && (
         <div
           aria-hidden="true"
@@ -2639,7 +2661,7 @@ function SegmentedToggle({ options, value, onChange }) {
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
-          className="tap relative px-4 py-1.5 rounded-full text-xs font-semibold"
+          className="tap relative flex-1 min-w-0 px-2 py-1.5 rounded-full text-xs font-semibold truncate"
           style={{ color: value === o.value ? "#0A0D18" : "var(--text-dim)", transition: `color 220ms ${EASE}`, zIndex: 1 }}
         >
           {o.label}

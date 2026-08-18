@@ -6,4 +6,10 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* Belt-and-braces: nothing on the page should ever be able to push the
+     document wider than the viewport and leave it scrolled sideways —
+     that's what caused mobile browsers' "scroll the focused field into
+     view" to shift the whole page horizontally and clip its left edge. */
+  overflow-x: hidden;
+  max-width: 100vw;
 }
