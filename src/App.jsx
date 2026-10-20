@@ -586,6 +586,51 @@ function instagramEmbedSrc(url) {
   return match ? `https://www.instagram.com/${match[1]}/${match[2]}/embed` : null;
 }
 
+const INSTAGRAM_PROFILE_URL = "https://www.instagram.com/bangalore_beyblade_association/";
+const INSTAGRAM_GALLERY_LIMIT = 4;
+
+// Instagram's embed page doesn't lay out below ~326px wide, so the iframe
+// always renders at EMBED_W and is scaled down to whatever width the tile
+// gets — that's what lets four tiles sit in a row (or two on a phone).
+// EMBED_VISIBLE_H crops to the profile header + square photo, hiding the
+// caption/comments block underneath.
+const EMBED_W = 340;
+const EMBED_VISIBLE_H = 430;
+
+function InstagramTile({ src, title }) {
+  const ref = useRef(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setScale(entry.contentRect.width / EMBED_W));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className="lift rounded-2xl overflow-hidden relative"
+      style={{ aspectRatio: `${EMBED_W} / ${EMBED_VISIBLE_H}`, border: "1px solid var(--border)" }}
+    >
+      <iframe
+        src={src}
+        title={title}
+        loading="lazy"
+        scrolling="no"
+        style={{
+          width: EMBED_W,
+          height: 700,
+          border: "none",
+          marginTop: -1,
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+        }}
+      />
+    </div>
+  );
+}
+
 function useApprovedProducts() {
   const [products, setProducts] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -800,6 +845,11 @@ export default function App() {
   const memberCount = useMemberCount();
   const rulebookText = useRulebookText();
   const instagramPosts = useInstagramPosts();
+  // newest-added first; admins add posts as they go up on Instagram
+  const recentInstagramPosts = [...instagramPosts]
+    .filter((post) => instagramEmbedSrc(post.url))
+    .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    .slice(0, INSTAGRAM_GALLERY_LIMIT);
   const myProfile = useMyProfile(user?.uid);
 
   const [approvedProducts, productsLoaded] = useApprovedProducts();
@@ -1292,7 +1342,7 @@ export default function App() {
               <p style={{ color: "var(--text-dim)" }}>Photos and highlights from our Instagram.</p>
             </div>
             <a
-              href="https://www.instagram.com/bangalore_beyblade_association/"
+              href={INSTAGRAM_PROFILE_URL}
               target="_blank"
               rel="noreferrer"
               className="tap text-sm font-semibold"
@@ -1301,12 +1351,12 @@ export default function App() {
               @bangalore_beyblade_association ↗
             </a>
           </div>
-          {instagramPosts.length === 0 ? (
+          {recentInstagramPosts.length === 0 ? (
             <div className="p-8 rounded-2xl text-center" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
               <p className="text-sm" style={{ color: "var(--text-faint)" }}>
                 Instagram gallery coming soon — follow us at{" "}
                 <a
-                  href="https://www.instagram.com/bangalore_beyblade_association/"
+                  href={INSTAGRAM_PROFILE_URL}
                   target="_blank"
                   rel="noreferrer"
                   className="tap font-semibold"
@@ -1318,28 +1368,26 @@ export default function App() {
               </p>
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {instagramPosts.map((post, i) => {
-                const src = instagramEmbedSrc(post.url);
-                if (!src) return null;
-                return (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                {recentInstagramPosts.map((post, i) => (
                   <Reveal key={post.id} delay={i * 60}>
-                    <div
-                      className="lift rounded-2xl overflow-hidden"
-                      style={{ height: 460, border: "1px solid var(--border)" }}
-                    >
-                      <iframe
-                        src={src}
-                        title={`Instagram post ${i + 1}`}
-                        loading="lazy"
-                        scrolling="no"
-                        style={{ width: "100%", height: 700, border: "none", marginTop: -1 }}
-                      />
-                    </div>
+                    <InstagramTile src={instagramEmbedSrc(post.url)} title={`Instagram post ${i + 1}`} />
                   </Reveal>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+              <div className="flex justify-center mt-8">
+                <a
+                  href={INSTAGRAM_PROFILE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="tap px-6 py-3 rounded-full font-semibold text-sm border"
+                  style={{ borderColor: "var(--border-strong)", color: "var(--text)" }}
+                >
+                  View more on Instagram ↗
+                </a>
+              </div>
+            </>
           )}
         </Reveal>
       </section>
@@ -3433,7 +3481,7 @@ function AdminInstagram({ posts, fireToast }) {
       <p className="text-sm mb-4" style={{ color: "var(--text-dim)" }}>
         Paste a link to any public post on{" "}
         <a
-          href="https://www.instagram.com/bangalore_beyblade_association/"
+          href={INSTAGRAM_PROFILE_URL}
           target="_blank"
           rel="noreferrer"
           className="tap font-semibold"
