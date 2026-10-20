@@ -595,7 +595,7 @@ const INSTAGRAM_GALLERY_LIMIT = 4;
 // EMBED_VISIBLE_H crops to the profile header + square photo, hiding the
 // caption/comments block underneath.
 const EMBED_W = 340;
-const EMBED_VISIBLE_H = 430;
+const EMBED_VISIBLE_H = 400;
 
 function InstagramTile({ src, title }) {
   const ref = useRef(null);
