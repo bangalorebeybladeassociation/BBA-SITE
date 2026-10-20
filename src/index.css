@@ -7,3 +7,27 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/* Metric-matched stand-ins shown until the Google Fonts arrive (loaded from
+   index.html). size-adjust/ascent/descent were measured against Arial (Liberation Sans/Arimo share its metrics) so
+   text occupies the same space before and after the swap — without them the
+   hero heading wraps differently and shoves the page down (layout shift). */
+@font-face {
+  font-family: "Rajdhani Fallback";
+  src: local("Arial"), local("ArialMT"), local("Helvetica"), local("Liberation Sans"), local("Arimo"), local("Roboto");
+  /* average match is 82.7%; kept a bit narrower because the hero heading
+     sits right at the column edge on 360px phones, and a narrower stand-in
+     can never wrap onto more lines than Rajdhani itself */
+  size-adjust: 80%;
+  ascent-override: 116.3%;
+  descent-override: 43.8%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial"), local("ArialMT"), local("Helvetica"), local("Liberation Sans"), local("Arimo"), local("Roboto");
+  size-adjust: 103.3%;
+  ascent-override: 93.9%;
+  descent-override: 23.2%;
+  line-gap-override: 0%;
+}

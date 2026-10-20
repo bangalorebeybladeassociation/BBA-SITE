@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { useAuth } from "../auth/context";
 import { goAuth } from "../lib/authRoute";
 import { firebaseReady } from "../lib/firebase";
-import beybladeImg from "../assets/beyblade.png";
-import bbaLogo from "../assets/bba-logo.png";
+import beybladeImg from "../assets/beyblade.webp";
+import bbaLogo from "../assets/bba-logo.webp";
 
 const EASE = "cubic-bezier(0.32,0.72,0,1)";
 
