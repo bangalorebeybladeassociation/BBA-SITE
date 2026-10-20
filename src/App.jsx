@@ -7,7 +7,7 @@ import AuthPage from "./pages/AuthPage";
 import AccountMenu from "./components/AccountMenu";
 import Icon from "./components/Icon";
 import { readAuthRoute, goAuth, leaveAuth, ROUTE_EVENT } from "./lib/authRoute";
-import { readPage, leavePage, PAGE_EVENT } from "./lib/pageRoute";
+import { readPage, goPage, leavePage, PAGE_EVENT } from "./lib/pageRoute";
 import { firebaseReady } from "./lib/firebase";
 import {
   listenEvents,
@@ -1110,19 +1110,80 @@ export default function App() {
         @keyframes auth-in { from { opacity:0; transform: translateY(14px);} to {opacity:1; transform: translateY(0);} }
         @keyframes glow-pulse { 0%,100% { opacity:0.5;} 50% { opacity:0.9;} }
         .disp { font-family:'Rajdhani','Rajdhani Fallback',sans-serif; }
-        /* synced WBO forum post (see WboRulesCard) */
+        /* synced WBO forum post (see WboRulesCard) — the thread's own
+           template leans on a handful of structural classes (kept by
+           scripts/sync-wbo-rules.mjs's sanitizer allowlist); styled here
+           to match the site instead of rendering as plain paragraphs. */
         .wbo-rules { color: var(--silver); overflow-wrap: anywhere; }
         .wbo-rules a { color: var(--accent-ink); text-decoration: underline; }
         .wbo-rules strong, .wbo-rules b { color: var(--text); }
         .wbo-rules .wbo-lg { display: inline-block; font-size: 1.15rem; margin: 0.75rem 0 0.25rem; color: var(--text); }
+        .wbo-rules h1, .wbo-rules h2, .wbo-rules h3, .wbo-rules h4, .wbo-rules h5, .wbo-rules h6 {
+          font-family:'Rajdhani','Rajdhani Fallback',sans-serif; font-weight: 700; color: var(--text);
+          scroll-margin-top: 90px;
+        }
+        .wbo-rules h1 { display: none; } /* "Beyblade X Rules" — the card already has its own title */
+        .wbo-rules h2 { font-size: 1.5rem; margin: 2.25rem 0 0.9rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+        .wbo-rules h2:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+        .wbo-rules h3 { font-size: 1.2rem; margin: 1.5rem 0 0.6rem; }
+        .wbo-rules h4 { font-size: 1.02rem; margin: 1.1rem 0 0.5rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+        .wbo-rules p { margin: 0.6rem 0; }
         .wbo-rules ul, .wbo-rules ol { padding-left: 1.25rem; margin: 0.5rem 0; }
         .wbo-rules ul { list-style: disc; }
         .wbo-rules ol { list-style: decimal; }
+        .wbo-rules li { margin: 0.25rem 0; }
         .wbo-rules blockquote { border-left: 3px solid var(--border-strong); padding-left: 0.75rem; margin: 0.75rem 0; }
         .wbo-rules table { display: block; overflow-x: auto; border-collapse: collapse; margin: 0.75rem 0; }
         .wbo-rules td, .wbo-rules th { border: 1px solid var(--border-strong); padding: 0.35rem 0.6rem; }
-        .wbo-rules img { max-width: 100%; height: auto; border-radius: 8px; }
+        .wbo-rules img { max-width: 100%; height: auto; border-radius: 8px; display: block; }
+        .wbo-rules img.wbo-deck, .wbo-rules img.\\31 on1, .wbo-rules img.\\33 on3 { max-width: 320px; margin: 0.5rem auto; }
         .wbo-rules hr { border-color: var(--border); margin: 1rem 0; }
+        .wbo-rules .text-muted { color: var(--text-faint); font-size: 0.85em; }
+        .wbo-rules .rules-tag {
+          display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.6rem; border-radius: 999px;
+          font-size: 0.7rem; font-weight: 600; background: var(--border); color: var(--text-dim);
+          vertical-align: middle; text-decoration: none;
+        }
+        /* callout / info-grid boxes (About This Rulebook, Battle Types, Finishes, …) */
+        .wbo-rules .flex-table { margin: 1rem 0; display: flex; flex-direction: column; gap: 0.6rem; }
+        .wbo-rules .flex-table-row { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+        .wbo-rules .flex-table-cell {
+          flex: 1 1 220px; background: var(--surface); border: 1px solid var(--border);
+          border-radius: 14px; padding: 0.9rem 1.1rem;
+        }
+        .wbo-rules .flex-table-cell.attention { border-color: rgba(0,230,195,0.35); background: rgba(0,230,195,0.07); }
+        .wbo-rules .flex-table.small .flex-table-cell { padding: 0.65rem 0.9rem; flex-basis: 160px; }
+        .wbo-rules .cell-heading {
+          font-family:'Rajdhani','Rajdhani Fallback',sans-serif; font-weight: 700; font-size: 1.05rem;
+          color: var(--text); margin-bottom: 0.4rem;
+        }
+        .wbo-rules .cell-heading div + div { font-size: 0.8rem; font-weight: 600; color: var(--accent-ink); margin-top: 0.1rem; }
+        .wbo-rules .cell-body { font-size: 0.92rem; }
+        .wbo-rules .cell-body > :first-child { margin-top: 0; }
+        .wbo-rules .cell-body > :last-child { margin-bottom: 0; }
+        .wbo-rules .battle-type-cell { display: flex; flex-wrap: wrap; gap: 0.9rem; align-items: flex-start; }
+        .wbo-rules .battle-type-cell img { flex: 0 0 auto; max-width: 140px; margin: 0; }
+        .wbo-rules .battle-type-cell ol, .wbo-rules .battle-type-cell ul { flex: 1 1 160px; margin: 0; }
+        .wbo-rules .pre-table {
+          text-align: center; font-weight: 600; font-style: italic; color: var(--text-dim);
+          background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+          padding: 0.5rem 1rem; margin: 1rem 0 0.5rem;
+        }
+        /* legal / illegal example galleries */
+        .wbo-rules .rules-fig-container { margin: 1.25rem 0; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+        .wbo-rules .rules-fig-heading {
+          font-family:'Rajdhani','Rajdhani Fallback',sans-serif; font-weight: 700; font-size: 1rem;
+          padding: 0.7rem 1.1rem; background: var(--surface); border-bottom: 1px solid var(--border);
+        }
+        .wbo-rules .rules-fig-container.ok .rules-fig-heading { color: var(--accent-ink); }
+        .wbo-rules .rules-fig-container.ok .rules-fig-heading::before { content: "✓ "; }
+        .wbo-rules .rules-fig-container.ng .rules-fig-heading { color: var(--accent2-ink); }
+        .wbo-rules .rules-fig-container.ng .rules-fig-heading::before { content: "✗ "; }
+        .wbo-rules .rules-fig-content { padding: 1rem; display: flex; flex-direction: column; gap: 0.9rem; }
+        .wbo-rules .rules-fig-content .row { display: flex; flex-wrap: wrap; gap: 0.9rem; }
+        .wbo-rules .rules-fig { flex: 1 1 200px; font-size: 0.85rem; }
+        .wbo-rules .rules-fig img { border-radius: 10px; margin-bottom: 0.4rem; }
+        .wbo-rules .rules-fig ul { margin: 0.3rem 0; padding-left: 1.1rem; }
         .tap { transition: transform 200ms ${EASE}, opacity 150ms ${EASE}, filter 200ms ${EASE}; }
         .tap:active { transform: scale(0.96); opacity:0.85; }
         .lift { transition: transform 260ms ${EASE}, box-shadow 260ms ${EASE}, border-color 260ms ${EASE}; }
@@ -1233,6 +1294,23 @@ export default function App() {
             instagramPosts={instagramPosts}
           />
         </DashboardPage>
+      ) : page === "rulebook" ? (
+        <DashboardPage
+          icon="rulebook"
+          title="Rulebook"
+          subtitle="Judged to WBO standard — the official rules below stay in sync with worldbeyblade.org, plus Bangalore-specific additions."
+          onBack={leavePage}
+        >
+          <div className="space-y-6">
+            {rulebookText && (
+              <div className="p-6 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                <h3 className="disp font-bold text-xl mb-4">BBA house rules</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--silver)", whiteSpace: "pre-wrap" }}>{rulebookText}</p>
+              </div>
+            )}
+            <WboRulesCard rules={wboRules} />
+          </div>
+        </DashboardPage>
       ) : registerEvent ? (
         <RegistrationPage
           event={registerEvent}
@@ -1264,24 +1342,8 @@ export default function App() {
           </span>
           <span className="disp font-bold tracking-wide text-lg lg:hidden">BBA</span>
         </a>
-        <div className="hidden md:flex items-center gap-7 text-sm" style={{ color: "var(--silver)" }}>
-          <a href="#events" className="tap nav-link hover:text-white flex items-center gap-1.5">
-            <Icon name="events" /> Events
-          </a>
-          <a href="#media" className="tap nav-link hover:text-white flex items-center gap-1.5">
-            <Icon name="media" /> Media
-          </a>
-          <a href="#leaderboard" className="tap nav-link hover:text-white flex items-center gap-1.5">
-            <Icon name="leaderboard" /> Leaderboard
-          </a>
-          <a href="#rulebook" className="tap nav-link hover:text-white flex items-center gap-1.5">
-            <Icon name="rulebook" /> Rulebook
-          </a>
-          <a href="#market" className="tap nav-link hover:text-white flex items-center gap-1.5">
-            <Icon name="shop" /> Shop
-          </a>
-        </div>
         <div className="flex items-center gap-2 sm:gap-3">
+          <NavMenu />
           <button
             onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
             aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
@@ -1483,25 +1545,6 @@ export default function App() {
         ) : (
           <LeaderboardSection rows={leaderboard} eventDefs={leaderboardEventDefs} season={season} />
         )}
-      </section>
-
-      {/* RULEBOOK */}
-      <section id="rulebook" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
-        <Reveal>
-          <h2 className="disp font-bold text-3xl mb-2">Rulebook</h2>
-          <p style={{ color: "var(--text-dim)" }} className="mb-10">
-            Judged to WBO standard — the official rules below stay in sync with worldbeyblade.org, plus Bangalore-specific additions.
-          </p>
-        </Reveal>
-        <div className="space-y-6">
-          {rulebookText && (
-            <div className="p-6 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-              <h3 className="disp font-bold text-xl mb-4">BBA house rules</h3>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--silver)", whiteSpace: "pre-wrap" }}>{rulebookText}</p>
-            </div>
-          )}
-          <WboRulesCard rules={wboRules} />
-        </div>
       </section>
 
       {/* MARKETPLACE — buying only. Selling/administering live on their own
@@ -1724,6 +1767,81 @@ export default function App() {
           style={{ width: 30, height: 30, display: "block" }}
         />
       </button>
+    </div>
+  );
+}
+
+const NAV_LINKS = [
+  { href: "#events", icon: "events", label: "Events" },
+  { href: "#media", icon: "media", label: "Media" },
+  { href: "#leaderboard", icon: "leaderboard", label: "Leaderboard" },
+  { href: "#market", icon: "shop", label: "Shop" },
+];
+
+/* ---------- nav menu ----------
+   All site navigation lives behind this single hamburger button —
+   same dropdown pattern as AccountMenu — rather than an inline
+   link row, so the nav bar stays compact at every width. */
+function NavMenu() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label={open ? "Close menu" : "Open menu"}
+        aria-expanded={open}
+        className="tap flex items-center justify-center rounded-full shrink-0"
+        style={{ width: 38, height: 38, border: "1px solid var(--border-strong)", color: "var(--text)" }}
+      >
+        <Icon name={open ? "close" : "menu"} size={16} />
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 mt-2 rounded-xl overflow-hidden"
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            minWidth: 190,
+            zIndex: 50,
+            transformOrigin: "top right",
+            animation: "pop-in 180ms cubic-bezier(0.32,0.72,0,1)",
+          }}
+        >
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              onClick={() => setOpen(false)}
+              className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
+              style={{ color: "var(--text)", borderBottom: "1px solid var(--border)" }}
+            >
+              <Icon name={link.icon} /> {link.label}
+            </a>
+          ))}
+          <button
+            onClick={() => {
+              setOpen(false);
+              goPage("rulebook");
+            }}
+            className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
+            style={{ color: "var(--text)" }}
+          >
+            <Icon name="rulebook" /> Rulebook
+          </button>
+        </div>
+      )}
     </div>
   );
 }
