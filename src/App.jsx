@@ -1209,6 +1209,7 @@ export default function App() {
           <button
             onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
             aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             className="tap flex items-center justify-center rounded-full shrink-0"
             style={{ width: 38, height: 38, border: "1px solid var(--border-strong)", color: "var(--text)" }}
           >
@@ -1217,6 +1218,7 @@ export default function App() {
           <button
             onClick={() => setCartOpen(true)}
             aria-label={cartCount > 0 ? `Cart, ${cartCount} item${cartCount === 1 ? "" : "s"}` : "Cart"}
+            title={cartCount > 0 ? `Cart, ${cartCount} item${cartCount === 1 ? "" : "s"}` : "Cart"}
             className="tap relative flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-semibold"
             style={{ background: "var(--accent2)", color: "#0A0D18" }}
           >
@@ -1346,7 +1348,7 @@ export default function App() {
       ) : (
       <>
       {/* HERO */}
-      <header className="relative overflow-hidden px-5 md:px-10 pt-32 pb-24 flex flex-col md:flex-row items-center gap-10 max-w-6xl mx-auto">
+      <header className="relative overflow-hidden px-5 md:px-10 pt-24 pb-24 flex flex-col md:flex-row items-center gap-10 max-w-6xl mx-auto">
         <div className="flex-1">
           <div
             className="inline-block px-3 py-1 rounded-full text-xs font-semibold mb-5"
@@ -1390,7 +1392,7 @@ export default function App() {
       </header>
 
       {/* EVENTS */}
-      <section id="events" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
+      <section id="events" className="max-w-6xl mx-auto px-5 md:px-10 py-8">
         <Reveal>
           <h2 className="disp font-bold text-3xl mb-2">Tournament Events</h2>
           <p style={{ color: "var(--text-dim)" }} className="mb-2">Every event, past and upcoming — tap a bracket to open it live on Challonge.</p>
@@ -1403,8 +1405,20 @@ export default function App() {
         )}
       </section>
 
+      {/* LEADERBOARD */}
+      <section id="leaderboard" className="max-w-6xl mx-auto px-5 md:px-10 py-8">
+        {leaderboard.length === 0 ? (
+          <Reveal>
+            <h2 className="disp font-bold text-3xl mb-2 text-center">Season {season} Leaderboard</h2>
+            <p className="text-sm text-center" style={{ color: "var(--text-faint)" }}>No standings posted yet.</p>
+          </Reveal>
+        ) : (
+          <LeaderboardSection rows={leaderboard} eventDefs={leaderboardEventDefs} season={season} />
+        )}
+      </section>
+
       {/* MEDIA */}
-      <section id="media" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
+      <section id="media" className="max-w-6xl mx-auto px-5 md:px-10 py-8">
         <Reveal>
           <div className="flex items-end justify-between gap-3 flex-wrap mb-10">
             <div>
@@ -1462,18 +1476,6 @@ export default function App() {
             </>
           )}
         </Reveal>
-      </section>
-
-      {/* LEADERBOARD */}
-      <section id="leaderboard" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
-        {leaderboard.length === 0 ? (
-          <Reveal>
-            <h2 className="disp font-bold text-3xl mb-2 text-center">Season {season} Leaderboard</h2>
-            <p className="text-sm text-center" style={{ color: "var(--text-faint)" }}>No standings posted yet.</p>
-          </Reveal>
-        ) : (
-          <LeaderboardSection rows={leaderboard} eventDefs={leaderboardEventDefs} season={season} />
-        )}
       </section>
 
       <footer className="flex flex-col items-center gap-3 text-center text-xs py-10" style={{ color: "var(--text-faint)" }}>
@@ -1657,6 +1659,7 @@ export default function App() {
         ref={backToTopRef}
         onClick={() => lenisRef.current?.scrollTo(0)}
         aria-label="Back to top"
+        title="Back to top"
         className="tap lift fixed z-40 flex items-center justify-center rounded-full"
         style={{
           right: 20,
@@ -1685,11 +1688,11 @@ export default function App() {
 
 const NAV_LINKS = [
   { href: "#events", icon: "events", label: "Events" },
-  { href: "#media", icon: "media", label: "Media" },
   { href: "#leaderboard", icon: "leaderboard", label: "Leaderboard" },
+  { href: "#media", icon: "media", label: "Media" },
 ];
 const NAV_PAGES = [
-  { page: "market", icon: "shop", label: "Shop" },
+  { page: "market", icon: "shop", label: "Marketplace" },
   { page: "rulebook", icon: "rulebook", label: "Rulebook" },
 ];
 
@@ -1715,6 +1718,7 @@ function NavMenu() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Close menu" : "Open menu"}
+        title={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
         className="tap flex items-center justify-center rounded-full shrink-0"
         style={{ width: 38, height: 38, border: "1px solid var(--border-strong)", color: "var(--text)" }}
@@ -1771,7 +1775,7 @@ function NavMenu() {
 function DashboardPage({ icon, title, subtitle, onBack, children }) {
   return (
     <div
-      className="min-h-screen px-5 md:px-10 pt-28 pb-10 max-w-5xl mx-auto"
+      className="min-h-screen px-5 md:px-10 pt-20 pb-10 max-w-5xl mx-auto"
       style={{ animation: `auth-in 380ms ${EASE}` }}
     >
       <button onClick={onBack} className="tap text-sm mb-6 inline-block" style={{ color: "var(--text-faint)" }}>
@@ -2068,6 +2072,7 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
                         className="tap shrink-0 flex items-center justify-center rounded-full"
                         style={{ width: 32, height: 32, border: "1px solid var(--border-strong)", color: "var(--danger)" }}
                         aria-label="Remove visitor"
+                        title="Remove visitor"
                       >
                         ×
                       </button>
@@ -2233,19 +2238,31 @@ function BuyerPanel({ products, onAdd, loaded }) {
       <div className="flex flex-wrap gap-4 mb-6">
         <div>
           <div className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>Type</div>
-          <TabStrip
-            tabs={[["All", "All"], ...ITEM_TYPES.map((c) => [c, c])]}
-            active={itemType}
-            onChange={setItemType}
-          />
+          <select
+            value={itemType}
+            onChange={(e) => setItemType(e.target.value)}
+            className="px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle()}
+          >
+            <option value="All">All</option>
+            {ITEM_TYPES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
         <div>
           <div className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>Condition</div>
-          <TabStrip
-            tabs={[["All", "All"], ...CONDITIONS.map((c) => [c, c])]}
-            active={condition}
-            onChange={setCondition}
-          />
+          <select
+            value={condition}
+            onChange={(e) => setCondition(e.target.value)}
+            className="px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle()}
+          >
+            <option value="All">All</option>
+            {CONDITIONS.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
       </div>
       {!loaded ? (
@@ -3248,6 +3265,7 @@ function AdminRegistrations({ registrations, onSetStatus, onDelete }) {
                         className="tap shrink-0 flex items-center justify-center rounded-full"
                         style={{ width: 30, height: 30, border: "1px solid var(--border-strong)", color: "var(--danger)" }}
                         aria-label="Delete registration"
+                        title="Delete registration"
                       >
                         <Icon name="remove" size={13} />
                       </button>

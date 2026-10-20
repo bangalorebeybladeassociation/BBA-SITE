@@ -34,6 +34,8 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
     <div ref={ref} style={{ position: "relative" }}>
       <button
         onClick={() => setOpen((o) => !o)}
+        aria-label={`Account menu for ${user.name}`}
+        title={`Account menu for ${user.name}`}
         className="tap flex items-center gap-2 pl-2 pr-2 sm:pr-3 py-1.5 rounded-full text-sm font-semibold"
         style={{ background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text)" }}
       >
