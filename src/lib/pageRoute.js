@@ -5,7 +5,7 @@
    rather than an inline tab switcher.
 --------------------------------------------------------- */
 export const PAGE_EVENT = "bba:page-route-change";
-const PAGES = ["seller", "admin", "rulebook"];
+const PAGES = ["seller", "admin", "rulebook", "market"];
 
 export function readPage() {
   if (typeof window === "undefined") return null;

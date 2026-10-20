@@ -16,7 +16,6 @@ import {
   deleteEvent,
   listenSeason,
   setSeason,
-  listenMemberCount,
   syncMemberCount,
   listenRulebook,
   setRulebook,
@@ -91,52 +90,6 @@ function Reveal({ children, delay = 0, className = "" }) {
       }}
     >
       {children}
-    </div>
-  );
-}
-
-/* ---------- count-up, driven by the same reveal trigger ---------- */
-function useCountUp(target, start, duration = 1200) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    if (!start) return;
-    let raf;
-    const t0 = performance.now();
-    const tick = (now) => {
-      const progress = Math.min((now - t0) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-      setValue(Math.round(target * eased));
-      if (progress < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [start, target, duration]);
-  return value;
-}
-
-/* ---------- stat card — reveals in, then counts its number up ---------- */
-function StatCard({ value, label, delay = 0 }) {
-  const [ref, shown] = useReveal();
-  const match = value.match(/^(\d+)(.*)$/);
-  const numeric = match ? parseInt(match[1], 10) : null;
-  const suffix = match ? match[2] : "";
-  const count = useCountUp(numeric ?? 0, shown);
-  return (
-    <div
-      ref={ref}
-      className="lift p-5 rounded-2xl"
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        opacity: shown ? 1 : 0,
-        transform: shown ? "translateY(0)" : "translateY(24px)",
-        transition: `opacity 700ms ${EASE} ${delay}ms, transform 700ms ${EASE} ${delay}ms`,
-      }}
-    >
-      <div className="disp font-bold" style={{ fontSize: 34, color: "var(--accent-ink)" }}>
-        {numeric !== null ? count : value}{suffix}
-      </div>
-      <div className="text-sm mt-1" style={{ color: "var(--text-dim)" }}>{label}</div>
     </div>
   );
 }
@@ -548,15 +501,6 @@ function useSeason() {
   return season;
 }
 
-function useMemberCount() {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (!firebaseReady) return;
-    return listenMemberCount(setCount);
-  }, []);
-  return count;
-}
-
 function useRulebookText() {
   const [text, setText] = useState("");
   useEffect(() => {
@@ -911,7 +855,6 @@ export default function App() {
   const { rows: sheetRows, eventDefs: leaderboardEventDefs, status: sheetStatus, lastSynced: sheetSynced, refresh: refreshSheet } = useLiveLeaderboard();
   const season = useSeason();
   const leaderboard = sheetRows.map((r) => ({ ...r, season }));
-  const memberCount = useMemberCount();
   const rulebookText = useRulebookText();
   const wboRules = useWboRules();
   const instagramPosts = useInstagramPosts();
@@ -994,11 +937,7 @@ export default function App() {
     leaveAuth();
     fireToast(`Signed in as ${user.name}`);
     if (next === "cart") setCartOpen(true);
-    if (next === "market") {
-      requestAnimationFrame(() =>
-        document.getElementById("market")?.scrollIntoView({ behavior: "smooth" })
-      );
-    }
+    if (next === "market") goPage("market");
   }, [authLoading, user, route, fireToast]);
 
   // An admin can block/unblock live — if this session's account gets
@@ -1230,7 +1169,81 @@ export default function App() {
           keyframes above still apply. */}
       {route.mode ? (
         <AuthPage mode={route.mode} next={route.next} onClose={leaveAuth} />
-      ) : page === "seller" && isSeller ? (
+      ) : registerEvent ? (
+        <RegistrationPage
+          event={registerEvent}
+          user={user}
+          fireToast={fireToast}
+          onClose={() => setRegisterEvent(null)}
+        />
+      ) : (
+      <>
+
+      {/* NAV — shared by every page (home, dashboards) except the focused
+          auth/registration flows above, so the hamburger menu, theme
+          toggle, cart, and account menu stay reachable everywhere. */}
+      <nav
+        className="fixed top-0 left-0 right-0 z-40 px-5 md:px-10 flex items-center justify-between"
+        style={{
+          height: 64,
+          background: nav ? "rgba(var(--bg-rgb), 0.85)" : "transparent",
+          backdropFilter: nav ? "blur(14px)" : "none",
+          borderBottom: nav ? "1px solid var(--border)" : "1px solid transparent",
+          transition: `all 400ms ${EASE}`,
+        }}
+      >
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <NavMenu />
+          <a href="#top" onClick={() => leavePage()} className="tap flex items-center gap-2.5">
+            <div style={{ width: 34, height: 34, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
+              <img src={bbaLogo} alt="Bangalore Beyblade Association" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            </div>
+            {/* full name where there's room; the association's own BBA mark below that */}
+            <span className="disp font-bold tracking-wide text-lg hidden lg:inline">
+              BANGALORE BEYBLADE <span style={{ color: "var(--accent2-ink)" }}>ASSOCIATION</span>
+            </span>
+            <span className="disp font-bold tracking-wide text-lg lg:hidden">BBA</span>
+          </a>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="tap flex items-center justify-center rounded-full shrink-0"
+            style={{ width: 38, height: 38, border: "1px solid var(--border-strong)", color: "var(--text)" }}
+          >
+            <Icon name={theme === "dark" ? "sun" : "moon"} size={16} />
+          </button>
+          <button
+            onClick={() => setCartOpen(true)}
+            aria-label={cartCount > 0 ? `Cart, ${cartCount} item${cartCount === 1 ? "" : "s"}` : "Cart"}
+            className="tap relative flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-semibold"
+            style={{ background: "var(--accent2)", color: "#0A0D18" }}
+          >
+            <Icon name="cart" size={16} /> <span className="hidden sm:inline">Cart</span>
+            {cartCount > 0 && (
+              <span
+                key={cartCount}
+                className="absolute -top-2 -right-2 rounded-full flex items-center justify-center"
+                style={{
+                  width: 20,
+                  height: 20,
+                  background: "var(--accent)",
+                  color: "#0A0D18",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  animation: `pop-in 320ms ${EASE}`,
+                }}
+              >
+                {cartCount}
+              </span>
+            )}
+          </button>
+          <AccountMenu onSignedOut={() => fireToast("Signed out")} onOpenOrders={() => setOrdersOpen(true)} />
+        </div>
+      </nav>
+
+      {page === "seller" && isSeller ? (
         <DashboardPage
           icon="seller"
           title="Seller Dashboard"
@@ -1311,76 +1324,27 @@ export default function App() {
             <WboRulesCard rules={wboRules} />
           </div>
         </DashboardPage>
-      ) : registerEvent ? (
-        <RegistrationPage
-          event={registerEvent}
-          user={user}
-          fireToast={fireToast}
-          onClose={() => setRegisterEvent(null)}
-        />
+      ) : page === "market" ? (
+        <DashboardPage
+          icon="shop"
+          title="Marketplace"
+          subtitle="Buy parts from approved sellers across Bangalore's Beyblade X community."
+          onBack={leavePage}
+        >
+          {!user && (
+            <p className="text-xs mb-2" style={{ color: "var(--text-faint)" }}>
+              <button onClick={() => goAuth("login", "market")} className="tap font-semibold" style={{ color: "var(--accent-ink)" }}>
+                Sign in
+              </button>{" "}
+              to buy.
+            </p>
+          )}
+          <div className="mt-6">
+            <BuyerPanel products={approvedProducts} onAdd={addToCart} loaded={productsLoaded} />
+          </div>
+        </DashboardPage>
       ) : (
       <>
-
-      {/* NAV */}
-      <nav
-        className="fixed top-0 left-0 right-0 z-40 px-5 md:px-10 flex items-center justify-between"
-        style={{
-          height: 64,
-          background: nav ? "rgba(var(--bg-rgb), 0.85)" : "transparent",
-          backdropFilter: nav ? "blur(14px)" : "none",
-          borderBottom: nav ? "1px solid var(--border)" : "1px solid transparent",
-          transition: `all 400ms ${EASE}`,
-        }}
-      >
-        <a href="#top" className="tap flex items-center gap-2.5">
-          <div style={{ width: 34, height: 34, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
-            <img src={bbaLogo} alt="Bangalore Beyblade Association" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-          </div>
-          {/* full name where there's room; the association's own BBA mark below that */}
-          <span className="disp font-bold tracking-wide text-lg hidden lg:inline">
-            BANGALORE BEYBLADE <span style={{ color: "var(--accent2-ink)" }}>ASSOCIATION</span>
-          </span>
-          <span className="disp font-bold tracking-wide text-lg lg:hidden">BBA</span>
-        </a>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <NavMenu />
-          <button
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            className="tap flex items-center justify-center rounded-full shrink-0"
-            style={{ width: 38, height: 38, border: "1px solid var(--border-strong)", color: "var(--text)" }}
-          >
-            <Icon name={theme === "dark" ? "sun" : "moon"} size={16} />
-          </button>
-          <button
-            onClick={() => setCartOpen(true)}
-            aria-label={cartCount > 0 ? `Cart, ${cartCount} item${cartCount === 1 ? "" : "s"}` : "Cart"}
-            className="tap relative flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-semibold"
-            style={{ background: "var(--accent2)", color: "#0A0D18" }}
-          >
-            <Icon name="cart" size={16} /> <span className="hidden sm:inline">Cart</span>
-            {cartCount > 0 && (
-              <span
-                key={cartCount}
-                className="absolute -top-2 -right-2 rounded-full flex items-center justify-center"
-                style={{
-                  width: 20,
-                  height: 20,
-                  background: "var(--accent)",
-                  color: "#0A0D18",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  animation: `pop-in 320ms ${EASE}`,
-                }}
-              >
-                {cartCount}
-              </span>
-            )}
-          </button>
-          <AccountMenu onSignedOut={() => fireToast("Signed out")} onOpenOrders={() => setOrdersOpen(true)} />
-        </div>
-      </nav>
-
       {/* HERO */}
       <header className="relative overflow-hidden px-5 md:px-10 pt-32 pb-24 flex flex-col md:flex-row items-center gap-10 max-w-6xl mx-auto">
         <div className="flex-1">
@@ -1409,13 +1373,13 @@ export default function App() {
             >
               View Live Bracket ↗
             </a>
-            <a
-              href="#market"
+            <button
+              onClick={() => goPage("market")}
               className="tap px-6 py-3 rounded-full font-semibold text-sm border"
               style={{ borderColor: "var(--border-strong)", color: "var(--text)" }}
             >
               Browse Marketplace
-            </a>
+            </button>
           </div>
         </div>
         <div className="flex-1 flex justify-center">
@@ -1424,41 +1388,6 @@ export default function App() {
           </div>
         </div>
       </header>
-
-      {/* QUICK NAV — orients a first-time visitor to what's on this page */}
-      <Reveal className="max-w-6xl mx-auto px-5 md:px-10 pb-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            ["#events", "events", "Events", "Every event, past and upcoming, with live brackets"],
-            ["#media", "media", "Media", "Photos and highlights from our Instagram"],
-            ["#leaderboard", "leaderboard", "Leaderboard", `Season ${season} rankings across all events`],
-            ["#market", "shop", "Shop", "Buy parts, or sell your own as an approved seller"],
-          ].map(([href, icon, title, desc]) => (
-            <a
-              key={href}
-              href={href}
-              className="tap lift p-4 rounded-2xl block"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-            >
-              <div className="disp font-semibold text-base flex items-center gap-2" style={{ color: "var(--accent-ink)" }}>
-                <Icon name={icon} size={18} /> {title}
-              </div>
-              <div className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>{desc}</div>
-            </a>
-          ))}
-        </div>
-      </Reveal>
-
-      {/* STATS STRIP */}
-      <div className="max-w-6xl mx-auto px-5 md:px-10 grid grid-cols-1 sm:grid-cols-3 gap-6 pb-24">
-        {[
-          [String(events.length), "Tournaments hosted"],
-          [String(memberCount), "Registered bladers"],
-          ["1", "WBO-certified judge"],
-        ].map(([n, l], i) => (
-          <StatCard key={l} value={n} label={l} delay={i * 70} />
-        ))}
-      </div>
 
       {/* EVENTS */}
       <section id="events" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
@@ -1547,26 +1476,6 @@ export default function App() {
         )}
       </section>
 
-      {/* MARKETPLACE — buying only. Selling/administering live on their own
-          dashboard pages, reached from the account menu. */}
-      <section id="market" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
-        <Reveal>
-          <h2 className="disp font-bold text-3xl mb-2">Marketplace</h2>
-          <p style={{ color: "var(--text-dim)" }} className="mb-6">Buy parts from approved sellers across Bangalore's Beyblade X community.</p>
-        </Reveal>
-        {!user && (
-          <p className="text-xs mb-2" style={{ color: "var(--text-faint)" }}>
-            <button onClick={() => goAuth("login", "market")} className="tap font-semibold" style={{ color: "var(--accent-ink)" }}>
-              Sign in
-            </button>{" "}
-            to buy.
-          </p>
-        )}
-        <div className="mt-6">
-          <BuyerPanel products={approvedProducts} onAdd={addToCart} loaded={productsLoaded} />
-        </div>
-      </section>
-
       <footer className="flex flex-col items-center gap-3 text-center text-xs py-10" style={{ color: "var(--text-faint)" }}>
         <div style={{ width: 72, height: 72, borderRadius: "50%", overflow: "hidden", opacity: 0.85 }}>
           <img src={bbaLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
@@ -1575,8 +1484,11 @@ export default function App() {
           Bangalore Beyblade Association — run by bladers, for bladers. Not affiliated with TAKARA TOMY.
         </p>
       </footer>
+      </>
+      )}
 
-      {/* CART DRAWER */}
+      {/* CART DRAWER — shared across pages, not just the homepage, so items
+          added from the Marketplace page can be checked out from anywhere. */}
       <div
         className="fixed inset-0 z-50"
         style={{
@@ -1775,7 +1687,10 @@ const NAV_LINKS = [
   { href: "#events", icon: "events", label: "Events" },
   { href: "#media", icon: "media", label: "Media" },
   { href: "#leaderboard", icon: "leaderboard", label: "Leaderboard" },
-  { href: "#market", icon: "shop", label: "Shop" },
+];
+const NAV_PAGES = [
+  { page: "market", icon: "shop", label: "Shop" },
+  { page: "rulebook", icon: "rulebook", label: "Rulebook" },
 ];
 
 /* ---------- nav menu ----------
@@ -1809,13 +1724,13 @@ function NavMenu() {
 
       {open && (
         <div
-          className="absolute right-0 mt-2 rounded-xl overflow-hidden"
+          className="absolute left-0 mt-2 rounded-xl overflow-hidden"
           style={{
             background: "var(--surface)",
             border: "1px solid var(--border)",
             minWidth: 190,
             zIndex: 50,
-            transformOrigin: "top right",
+            transformOrigin: "top left",
             animation: "pop-in 180ms cubic-bezier(0.32,0.72,0,1)",
           }}
         >
@@ -1830,16 +1745,19 @@ function NavMenu() {
               <Icon name={link.icon} /> {link.label}
             </a>
           ))}
-          <button
-            onClick={() => {
-              setOpen(false);
-              goPage("rulebook");
-            }}
-            className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
-            style={{ color: "var(--text)" }}
-          >
-            <Icon name="rulebook" /> Rulebook
-          </button>
+          {NAV_PAGES.map((link, i) => (
+            <button
+              key={link.page}
+              onClick={() => {
+                setOpen(false);
+                goPage(link.page);
+              }}
+              className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
+              style={{ color: "var(--text)", borderBottom: i < NAV_PAGES.length - 1 ? "1px solid var(--border)" : "none" }}
+            >
+              <Icon name={link.icon} /> {link.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -1853,7 +1771,7 @@ function NavMenu() {
 function DashboardPage({ icon, title, subtitle, onBack, children }) {
   return (
     <div
-      className="min-h-screen px-5 md:px-10 py-10 max-w-5xl mx-auto"
+      className="min-h-screen px-5 md:px-10 pt-28 pb-10 max-w-5xl mx-auto"
       style={{ animation: `auth-in 380ms ${EASE}` }}
     >
       <button onClick={onBack} className="tap text-sm mb-6 inline-block" style={{ color: "var(--text-faint)" }}>
