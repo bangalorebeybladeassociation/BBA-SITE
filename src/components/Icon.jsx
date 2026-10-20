@@ -158,6 +158,16 @@ const ICON_PATHS = {
       <path d="M3.5 9.5h15" />
     </>
   ),
+  menu: (
+    <>
+      <path d="M4 6.5h16M4 12h16M4 17.5h16" />
+    </>
+  ),
+  close: (
+    <>
+      <path d="M5.5 5.5l13 13M18.5 5.5l-13 13" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 16 }) {
