@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Lenis from "lenis";
-import beybladeImg from "./assets/beyblade.png";
-import bbaLogo from "./assets/bba-logo.png";
+import beybladeImg from "./assets/beyblade.webp";
+import bbaLogo from "./assets/bba-logo.webp";
 import { useAuth } from "./auth/context";
 import AuthPage from "./pages/AuthPage";
 import AccountMenu from "./components/AccountMenu";
@@ -53,9 +53,6 @@ import {
    colors stay constant across themes; only the neutral surface,
    border and text ramp inverts.
 --------------------------------------------------------- */
-
-const FONT_IMPORT =
-  "@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap');";
 
 const EASE = "cubic-bezier(0.32,0.72,0,1)"; // iOS-ish spring ease
 
@@ -930,14 +927,13 @@ export default function App() {
   return (
     <div
       style={{
-        fontFamily: "'Inter', sans-serif",
+        fontFamily: "'Inter', 'Inter Fallback', sans-serif",
         background: "var(--bg)",
         color: "var(--text)",
         minHeight: "100vh",
       }}
     >
       <style>{`
-        ${FONT_IMPORT}
         :root {
           --bg: #0A0D18;
           --bg-rgb: 10,13,24;
@@ -947,7 +943,6 @@ export default function App() {
           --text: #F4F2EC;
           --text-dim: #9AA1B4;
           --text-faint: #7A8194;
-          --text-faint-2: #4A5070;
           --icon-dim: #5A6178;
           --accent: #00E6C3;
           --accent-ink: #00E6C3;
@@ -972,7 +967,6 @@ export default function App() {
           --text: #14161F;
           --text-dim: #545A6E;
           --text-faint: #6B7182;
-          --text-faint-2: #8A90A3;
           --icon-dim: #6B7182;
           --accent-ink: #00967F;
           --accent2-ink: #D8330F;
@@ -992,7 +986,7 @@ export default function App() {
         @keyframes pop-in { from { opacity:0; transform: scale(0.7);} to {opacity:1; transform: scale(1);} }
         @keyframes auth-in { from { opacity:0; transform: translateY(14px);} to {opacity:1; transform: translateY(0);} }
         @keyframes glow-pulse { 0%,100% { opacity:0.5;} 50% { opacity:0.9;} }
-        .disp { font-family:'Rajdhani',sans-serif; }
+        .disp { font-family:'Rajdhani','Rajdhani Fallback',sans-serif; }
         .tap { transition: transform 200ms ${EASE}, opacity 150ms ${EASE}, filter 200ms ${EASE}; }
         .tap:active { transform: scale(0.96); opacity:0.85; }
         .lift { transition: transform 260ms ${EASE}, box-shadow 260ms ${EASE}, border-color 260ms ${EASE}; }
@@ -1162,6 +1156,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setCartOpen(true)}
+            aria-label={cartCount > 0 ? `Cart, ${cartCount} item${cartCount === 1 ? "" : "s"}` : "Cart"}
             className="tap relative flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-semibold"
             style={{ background: "var(--accent2)", color: "#0A0D18" }}
           >
@@ -1391,7 +1386,7 @@ export default function App() {
         </div>
       </section>
 
-      <footer className="flex flex-col items-center gap-3 text-center text-xs py-10" style={{ color: "var(--text-faint-2)" }}>
+      <footer className="flex flex-col items-center gap-3 text-center text-xs py-10" style={{ color: "var(--text-faint)" }}>
         <div style={{ width: 72, height: 72, borderRadius: "50%", overflow: "hidden", opacity: 0.85 }}>
           <img src={bbaLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         </div>
