@@ -566,6 +566,78 @@ function useRulebookText() {
   return text;
 }
 
+const WBO_RULES_URL = "https://worldbeyblade.org/Thread-Beyblade-X-Rules";
+
+// Official WBO rules, copied daily into public/wbo-rules.json by
+// .github/workflows/sync-wbo-rules.yml (already sanitized there — see
+// scripts/sync-wbo-rules.mjs). null until loaded or if never synced.
+function useWboRules() {
+  const [rules, setRules] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${import.meta.env.BASE_URL}wbo-rules.json`, { cache: "no-cache" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => !cancelled && data?.html && setRules(data))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return rules;
+}
+
+function WboRulesCard({ rules }) {
+  const [expanded, setExpanded] = useState(false);
+  const synced = rules?.syncedAt
+    ? new Date(rules.syncedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : null;
+  return (
+    <div className="p-6 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+        <div>
+          <h3 className="disp font-bold text-xl">Official WBO Beyblade X rules</h3>
+          <p className="text-xs mt-1" style={{ color: "var(--text-faint)" }}>
+            {rules
+              ? [synced && `Synced from worldbeyblade.org · updated ${synced}`, rules.lastModified].filter(Boolean).join(" · ")
+              : "Read the current rules on the World Beyblade Organization forum."}
+          </p>
+        </div>
+        <a
+          href={rules?.source || WBO_RULES_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="tap text-sm font-semibold whitespace-nowrap"
+          style={{ color: "var(--accent-ink)" }}
+        >
+          View on WBO ↗
+        </a>
+      </div>
+      {rules && (
+        <>
+          <div className="relative" style={{ maxHeight: expanded ? "none" : 420, overflow: "hidden" }}>
+            {/* html is sanitized to a tag allowlist by the sync script */}
+            <div className="wbo-rules text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: rules.html }} />
+            {!expanded && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0"
+                style={{ height: 120, background: "linear-gradient(to bottom, transparent, var(--surface))" }}
+              />
+            )}
+          </div>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="tap mt-4 px-5 py-2 rounded-full text-sm font-semibold border"
+            style={{ borderColor: "var(--border-strong)", color: "var(--text)" }}
+          >
+            {expanded ? "Show less" : "Show full rules"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function useInstagramPosts() {
   const [posts, setPosts] = useState([]);
   useEffect(() => {
@@ -841,6 +913,7 @@ export default function App() {
   const leaderboard = sheetRows.map((r) => ({ ...r, season }));
   const memberCount = useMemberCount();
   const rulebookText = useRulebookText();
+  const wboRules = useWboRules();
   const instagramPosts = useInstagramPosts();
   // newest-added first; admins add posts as they go up on Instagram
   const recentInstagramPosts = [...instagramPosts]
@@ -1037,6 +1110,19 @@ export default function App() {
         @keyframes auth-in { from { opacity:0; transform: translateY(14px);} to {opacity:1; transform: translateY(0);} }
         @keyframes glow-pulse { 0%,100% { opacity:0.5;} 50% { opacity:0.9;} }
         .disp { font-family:'Rajdhani','Rajdhani Fallback',sans-serif; }
+        /* synced WBO forum post (see WboRulesCard) */
+        .wbo-rules { color: var(--silver); overflow-wrap: anywhere; }
+        .wbo-rules a { color: var(--accent-ink); text-decoration: underline; }
+        .wbo-rules strong, .wbo-rules b { color: var(--text); }
+        .wbo-rules .wbo-lg { display: inline-block; font-size: 1.15rem; margin: 0.75rem 0 0.25rem; color: var(--text); }
+        .wbo-rules ul, .wbo-rules ol { padding-left: 1.25rem; margin: 0.5rem 0; }
+        .wbo-rules ul { list-style: disc; }
+        .wbo-rules ol { list-style: decimal; }
+        .wbo-rules blockquote { border-left: 3px solid var(--border-strong); padding-left: 0.75rem; margin: 0.75rem 0; }
+        .wbo-rules table { display: block; overflow-x: auto; border-collapse: collapse; margin: 0.75rem 0; }
+        .wbo-rules td, .wbo-rules th { border: 1px solid var(--border-strong); padding: 0.35rem 0.6rem; }
+        .wbo-rules img { max-width: 100%; height: auto; border-radius: 8px; }
+        .wbo-rules hr { border-color: var(--border); margin: 1rem 0; }
         .tap { transition: transform 200ms ${EASE}, opacity 150ms ${EASE}, filter 200ms ${EASE}; }
         .tap:active { transform: scale(0.96); opacity:0.85; }
         .lift { transition: transform 260ms ${EASE}, box-shadow 260ms ${EASE}, border-color 260ms ${EASE}; }
@@ -1403,14 +1489,18 @@ export default function App() {
       <section id="rulebook" className="max-w-6xl mx-auto px-5 md:px-10 py-16">
         <Reveal>
           <h2 className="disp font-bold text-3xl mb-2">Rulebook</h2>
-          <p style={{ color: "var(--text-dim)" }} className="mb-10">Judged to WBO standard, with Bangalore-specific additions below.</p>
+          <p style={{ color: "var(--text-dim)" }} className="mb-10">
+            Judged to WBO standard — the official rules below stay in sync with worldbeyblade.org, plus Bangalore-specific additions.
+          </p>
         </Reveal>
-        <div className="p-6 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-          {rulebookText ? (
-            <p className="text-sm leading-relaxed" style={{ color: "var(--silver)", whiteSpace: "pre-wrap" }}>{rulebookText}</p>
-          ) : (
-            <p className="text-sm" style={{ color: "var(--text-faint)" }}>The rulebook hasn't been published yet.</p>
+        <div className="space-y-6">
+          {rulebookText && (
+            <div className="p-6 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+              <h3 className="disp font-bold text-xl mb-4">BBA house rules</h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--silver)", whiteSpace: "pre-wrap" }}>{rulebookText}</p>
+            </div>
           )}
+          <WboRulesCard rules={wboRules} />
         </div>
       </section>
 
@@ -3426,7 +3516,7 @@ function AdminRulebook({ text, fireToast }) {
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         rows={16}
-        placeholder="Write the rulebook here — plain text, line breaks are preserved."
+        placeholder="BBA house rules (Bangalore-specific additions) — plain text, line breaks are preserved. The official WBO rules are synced automatically and shown below these."
         className="w-full px-4 py-3 rounded-xl text-sm outline-none mb-3"
         style={{ ...fieldStyle(), resize: "vertical", fontFamily: "'JetBrains Mono',monospace" }}
       />

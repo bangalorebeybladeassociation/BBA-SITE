@@ -3,6 +3,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  # started by sync-wbo-rules.yml after it commits new rules
+  workflow_dispatch:
 
 permissions:
   contents: read

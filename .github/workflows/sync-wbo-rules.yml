@@ -1,0 +1,48 @@
+name: Sync WBO rules
+
+# Copies the official WBO Beyblade X rules into public/wbo-rules.json
+# (shown in the site's Rulebook section). Commits and redeploys only when
+# the rules actually changed. Run it by hand from the Actions tab any time.
+on:
+  schedule:
+    - cron: "17 21 * * *" # daily, 02:47 IST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write # to start the deploy workflow
+
+concurrency:
+  group: sync-wbo-rules
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: node scripts/sync-wbo-rules.mjs
+
+      - name: Commit and redeploy if the rules changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add public/wbo-rules.json
+          if git diff --cached --quiet; then
+            echo "Rules unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: sync WBO Beyblade X rules"
+          git push
+          # pushes made with the workflow token don't trigger other
+          # workflows, so start the Pages deploy explicitly
+          gh workflow run deploy.yml --ref "${GITHUB_REF_NAME}"
