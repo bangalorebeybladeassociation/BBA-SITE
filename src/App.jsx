@@ -530,6 +530,25 @@ function useWboRules() {
   return rules;
 }
 
+// Beyblade X product catalogue, synced from beyblade.phstudy.org by
+// scripts/sync-catalogue.mjs — sellers pick from it instead of typing a
+// free-text name, so every listing gets a real product photo. null
+// until loaded or if never synced.
+function useCatalogue() {
+  const [catalogue, setCatalogue] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${import.meta.env.BASE_URL}catalogue.json`, { cache: "no-cache" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => !cancelled && data?.items && setCatalogue(data.items))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return catalogue;
+}
+
 function WboRulesCard({ rules }) {
   const [expanded, setExpanded] = useState(false);
   const synced = rules?.syncedAt
@@ -857,6 +876,7 @@ export default function App() {
   const leaderboard = sheetRows.map((r) => ({ ...r, season }));
   const rulebookText = useRulebookText();
   const wboRules = useWboRules();
+  const catalogue = useCatalogue();
   const instagramPosts = useInstagramPosts();
   // newest-added first; admins add posts as they go up on Instagram
   const recentInstagramPosts = [...instagramPosts]
@@ -1257,6 +1277,7 @@ export default function App() {
             profile={myProfile}
             products={sellerProducts}
             orders={sellerOrders}
+            catalogue={catalogue}
             onCreate={async (p) => {
               await createProduct(p);
               fireToast("Listing submitted for admin approval");
@@ -1524,9 +1545,17 @@ export default function App() {
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
             {cart.length === 0 && <p style={{ color: "var(--text-faint)" }} className="text-sm">Nothing here yet — add parts from the shop.</p>}
             {cart.map((i) => (
-              <div key={i.id} className="flex items-center justify-between text-sm">
-                <div>
-                  <div className="font-medium">{i.name}</div>
+              <div key={i.id} className="flex items-center gap-3 text-sm">
+                {i.image && (
+                  <img
+                    src={`${import.meta.env.BASE_URL}${i.image}`}
+                    alt=""
+                    className="rounded-md shrink-0"
+                    style={{ width: 36, height: 36, objectFit: "cover" }}
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{i.name}</div>
                   <div style={{ color: "var(--text-faint)" }}>Qty {i.qty}</div>
                 </div>
                 <div style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{i.price * i.qty}</div>
@@ -2274,6 +2303,15 @@ function BuyerPanel({ products, onAdd, loaded }) {
           {shown.map((p, i) => (
             <Reveal key={p.id} delay={i * 40}>
               <div className="lift p-5 rounded-2xl flex flex-col gap-3" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                {p.image && (
+                  <img
+                    src={`${import.meta.env.BASE_URL}${p.image}`}
+                    alt=""
+                    loading="lazy"
+                    className="w-full rounded-xl"
+                    style={{ aspectRatio: "1/1", objectFit: "cover", background: "var(--bg)" }}
+                  />
+                )}
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="font-semibold text-sm">{p.name}</div>
@@ -2307,11 +2345,79 @@ function BuyerPanel({ products, onAdd, loaded }) {
   );
 }
 
+/* ---------- catalogue picker ----------
+   Lets a seller pick a real released product (name + photo) instead of
+   typing a free-text name — see scripts/sync-catalogue.mjs for where
+   the data comes from. */
+function CataloguePicker({ catalogue, onSelect, onClose }) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const shown = !catalogue
+    ? []
+    : q
+    ? catalogue.filter((it) => it.name.toLowerCase().includes(q))
+    : catalogue;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
+      <div onClick={onClose} className="absolute inset-0" style={{ background: "rgba(0,0,0,0.6)" }} />
+      <div
+        className="relative w-full max-w-2xl rounded-2xl flex flex-col"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)", maxHeight: "85vh" }}
+      >
+        <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <h3 className="disp font-bold text-lg">Choose a product</h3>
+          <button onClick={onClose} className="tap text-sm" style={{ color: "var(--text-dim)" }}>Close</button>
+        </div>
+        <div className="px-5 pt-4">
+          <input
+            autoFocus
+            placeholder="Search by name or code, e.g. CX-00, Dran Sword…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle()}
+          />
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {!catalogue ? (
+            <p className="text-sm" style={{ color: "var(--text-faint)" }}>Loading catalogue…</p>
+          ) : shown.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--text-faint)" }}>No matches — try a different search.</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {shown.map((it) => (
+                <button
+                  key={it.id}
+                  type="button"
+                  onClick={() => onSelect(it)}
+                  className="tap lift p-2.5 rounded-xl text-left flex flex-col gap-2"
+                  style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}
+                >
+                  <img
+                    src={`${import.meta.env.BASE_URL}${it.image}`}
+                    alt=""
+                    loading="lazy"
+                    className="w-full rounded-lg"
+                    style={{ aspectRatio: "1/1", objectFit: "cover", background: "var(--surface)" }}
+                  />
+                  <span className="text-xs leading-snug" style={{ color: "var(--text)" }}>{it.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- seller ---------- */
-function SellerPanel({ seller, profile, products, orders, onCreate, onSavePaymentInfo, onMarkPaid }) {
+function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, onSavePaymentInfo, onMarkPaid }) {
   const [tab, setTab] = useState("listings");
   const [form, setForm] = useState({
     name: "",
+    image: null,
     price: "",
     stock: "",
     itemType: "Beyblade",
@@ -2319,6 +2425,7 @@ function SellerPanel({ seller, profile, products, orders, onCreate, onSavePaymen
     beybladeCategory: "Attack",
   });
   const [payForm, setPayForm] = useState({ upiId: "", paymentContact: "" });
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -2326,11 +2433,15 @@ function SellerPanel({ seller, profile, products, orders, onCreate, onSavePaymen
     }
   }, [profile]);
 
+  const resetForm = () =>
+    setForm({ name: "", image: null, price: "", stock: "", itemType: "Beyblade", condition: "NIB", beybladeCategory: "Attack" });
+
   const submit = (e) => {
     e.preventDefault();
     if (!seller || !form.name || !form.price) return;
     onCreate({
       name: form.name,
+      image: form.image,
       price: Number(form.price),
       stock: Number(form.stock) || 1,
       itemType: form.itemType,
@@ -2339,7 +2450,7 @@ function SellerPanel({ seller, profile, products, orders, onCreate, onSavePaymen
       sellerId: seller.uid,
       sellerName: seller.name,
     });
-    setForm({ name: "", price: "", stock: "", itemType: "Beyblade", condition: "NIB", beybladeCategory: "Attack" });
+    resetForm();
   };
 
   return (
@@ -2362,13 +2473,43 @@ function SellerPanel({ seller, profile, products, orders, onCreate, onSavePaymen
               Listing as <span style={{ color: "var(--accent-ink)" }}>{seller?.name}</span>.
             </p>
             <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-              <input
-                placeholder="Item name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                style={fieldStyle()}
-              />
+              {form.image ? (
+                <div className="flex items-center gap-3 p-2 rounded-lg" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
+                  <img
+                    src={`${import.meta.env.BASE_URL}${form.image}`}
+                    alt=""
+                    className="rounded-md shrink-0"
+                    style={{ width: 40, height: 40, objectFit: "cover" }}
+                  />
+                  <span className="flex-1 min-w-0 text-sm truncate">{form.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, image: null })}
+                    className="tap shrink-0 text-xs font-semibold"
+                    style={{ color: "var(--text-faint)" }}
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen(true)}
+                    className="tap w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
+                    style={{ border: "1px dashed var(--border-strong)", color: "var(--accent-ink)" }}
+                  >
+                    <Icon name="gallery" size={15} /> Choose from catalogue
+                  </button>
+                  <input
+                    placeholder="Or type the item name"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    style={fieldStyle()}
+                  />
+                </>
+              )}
               <div className="flex gap-3">
                 <input
                   placeholder="Price ₹"
@@ -2417,15 +2558,33 @@ function SellerPanel({ seller, profile, products, orders, onCreate, onSavePaymen
                 Submit for approval
               </button>
             </form>
+            {pickerOpen && (
+              <CataloguePicker
+                catalogue={catalogue}
+                onClose={() => setPickerOpen(false)}
+                onSelect={(it) => {
+                  setForm({ ...form, name: it.name, image: it.image });
+                  setPickerOpen(false);
+                }}
+              />
+            )}
           </div>
           <div>
             <h3 className="font-semibold mb-4">My listings</h3>
             <div className="space-y-2">
               {products.length === 0 && <p className="text-sm" style={{ color: "var(--text-faint)" }}>No listings yet.</p>}
               {products.map((p) => (
-                <div key={p.id} className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                  <div>
-                    <div className="text-sm font-medium">{p.name}</div>
+                <div key={p.id} className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                  {p.image && (
+                    <img
+                      src={`${import.meta.env.BASE_URL}${p.image}`}
+                      alt=""
+                      className="rounded-md shrink-0"
+                      style={{ width: 36, height: 36, objectFit: "cover" }}
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{p.name}</div>
                     <div className="text-xs" style={{ color: "var(--text-faint)" }}>₹{p.price} · {p.itemType} · {p.condition}</div>
                   </div>
                   <StatusBadge status={p.status} />
@@ -2576,9 +2735,19 @@ function AdminListings({ products, onDecide }) {
       <div className="space-y-2">
         {pending.map((p) => (
           <div key={p.id} className="flex items-center justify-between px-4 py-3 rounded-xl flex-wrap gap-2" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-            <div>
-              <div className="text-sm font-medium">{p.name}</div>
-              <div className="text-xs" style={{ color: "var(--text-faint)" }}>{p.sellerName} · ₹{p.price} · {p.itemType} · {p.condition}</div>
+            <div className="flex items-center gap-3 min-w-0">
+              {p.image && (
+                <img
+                  src={`${import.meta.env.BASE_URL}${p.image}`}
+                  alt=""
+                  className="rounded-md shrink-0"
+                  style={{ width: 36, height: 36, objectFit: "cover" }}
+                />
+              )}
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">{p.name}</div>
+                <div className="text-xs" style={{ color: "var(--text-faint)" }}>{p.sellerName} · ₹{p.price} · {p.itemType} · {p.condition}</div>
+              </div>
             </div>
             <div className="flex gap-2">
               <button onClick={() => onDecide(p.id, "approved")} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: "var(--accent)", color: "#0A0D18" }}>Approve</button>
