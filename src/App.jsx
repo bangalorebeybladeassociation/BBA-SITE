@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Lenis from "lenis";
 import beybladeImg from "./assets/beyblade.webp";
 import bbaLogo from "./assets/bba-logo.webp";
+import bbaLogoLight from "./assets/bba-logo-light.webp";
 import { useAuth } from "./auth/context";
 import { rolesOf } from "./lib/roles";
 import AuthPage from "./pages/AuthPage";
@@ -864,6 +865,9 @@ function useSmoothScroll() {
 export default function App() {
   const { lenisRef, heroTiltRef, scrollBeyRef, backToTopRef } = useSmoothScroll();
   const [theme, setTheme] = useTheme();
+  // The dark-theme mark's ring/lettering is near-white — it washes out
+  // against a light background, so light theme gets a black-outlined variant.
+  const logoSrc = theme === "light" ? bbaLogoLight : bbaLogo;
   const [nav, setNav] = useState(false);
   const [toast, fireToast] = useToast();
   const [cart, setCart] = useState([]);
@@ -1205,6 +1209,21 @@ export default function App() {
         .field-input { transition: border-color 200ms ${EASE}, box-shadow 200ms ${EASE}, transform 150ms ${EASE}; }
         .field-input:focus { outline: none; border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(0,230,195,0.16); }
         .field-input:focus-within { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(0,230,195,0.16); }
+        .price-range { position: relative; height: 20px; }
+        .price-range input[type="range"] {
+          position: absolute; top: 0; left: 0; width: 100%; height: 20px; margin: 0;
+          -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none;
+        }
+        .price-range input[type="range"]::-webkit-slider-runnable-track { -webkit-appearance: none; height: 4px; background: transparent; }
+        .price-range input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none; pointer-events: auto; width: 16px; height: 16px; border-radius: 50%;
+          background: var(--accent); border: 2px solid var(--bg); box-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: pointer; margin-top: -6px;
+        }
+        .price-range input[type="range"]::-moz-range-track { height: 4px; background: transparent; }
+        .price-range input[type="range"]::-moz-range-thumb {
+          pointer-events: auto; width: 16px; height: 16px; border-radius: 50%;
+          background: var(--accent); border: 2px solid var(--bg); box-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: pointer;
+        }
         .swatch { transition: transform 180ms ${EASE}, box-shadow 180ms ${EASE}; }
         .swatch:hover { transform: scale(1.15); }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; opacity: 0.7; }
@@ -1230,7 +1249,7 @@ export default function App() {
           inside this wrapper so the font import, .disp/.tap classes and
           keyframes above still apply. */}
       {route.mode ? (
-        <AuthPage mode={route.mode} next={route.next} onClose={leaveAuth} />
+        <AuthPage mode={route.mode} next={route.next} onClose={leaveAuth} theme={theme} />
       ) : registerEvent ? (
         <RegistrationPage
           event={registerEvent}
@@ -1258,7 +1277,7 @@ export default function App() {
           <NavMenu />
           <a href="#top" onClick={() => leavePage()} className="tap flex items-center gap-2.5">
             <div style={{ width: 34, height: 34, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
-              <img src={bbaLogo} alt="Bangalore Beyblade Association" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <img src={logoSrc} alt="Bangalore Beyblade Association" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </div>
             {/* full name where there's room; the association's own BBA mark below that */}
             <span className="disp font-bold tracking-wide text-lg hidden lg:inline">
@@ -1547,7 +1566,7 @@ export default function App() {
 
       <footer className="flex flex-col items-center gap-3 text-center text-xs py-10" style={{ color: "var(--text-faint)" }}>
         <div style={{ width: 72, height: 72, borderRadius: "50%", overflow: "hidden", opacity: 0.85 }}>
-          <img src={bbaLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <img src={logoSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         </div>
         <p>
           Bangalore Beyblade Association — run by bladers, for bladers. Not affiliated with TAKARA TOMY.
@@ -1629,7 +1648,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{i.price * i.qty}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(i.price * i.qty)}</span>
                   <button
                     type="button"
                     onClick={() => removeFromCart(i.id, i.name)}
@@ -1647,7 +1666,7 @@ export default function App() {
           <div className="px-5 py-4" style={{ borderTop: "1px solid var(--border)" }}>
             <div className="flex justify-between mb-3 text-sm">
               <span style={{ color: "var(--text-dim)" }}>Total</span>
-              <span className="font-semibold" style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{cartTotal}</span>
+              <span className="font-semibold" style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(cartTotal)}</span>
             </div>
             {!user && cart.length > 0 && (
               <p className="text-xs mb-3" style={{ color: "var(--text-faint)" }}>
@@ -1711,7 +1730,7 @@ export default function App() {
                 <div key={o.id} className="p-4 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
                   <div className="flex justify-between text-sm mb-2">
                     <span className="font-semibold">{o.sellerName}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{o.total}</span>
+                    <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(o.total)}</span>
                   </div>
                   {o.sellerUpiId ? (
                     <p className="text-xs" style={{ color: "var(--accent-ink)" }}>UPI: {o.sellerUpiId}</p>
@@ -1767,7 +1786,7 @@ export default function App() {
               <div key={o.id} className="p-4 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="font-semibold">{o.sellerName}</span>
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{o.total}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(o.total)}</span>
                 </div>
                 <OrderStatusBadge status={o.status} />
                 {o.shipping && (
@@ -1972,7 +1991,7 @@ function UpiPayButton({ amount, note }) {
       className="tap w-full py-2.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
       style={{ background: "var(--accent2)", color: "#0A0D18" }}
     >
-      <Icon name="wallet" size={15} /> Pay ₹{amount} with GPay / PhonePe / UPI
+      <Icon name="wallet" size={15} /> Pay ₹{formatPrice(amount)} with GPay / PhonePe / UPI
     </a>
   );
 }
@@ -2246,10 +2265,10 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
               <span className="text-sm font-semibold">Payment info</span>
             </div>
             <p className="text-xs" style={{ color: "var(--text-dim)" }}>
-              Entry fee for Players: <span style={{ color: "var(--text)" }}>₹{REGISTRATION_PLAYER_FEE} per person</span>
+              Entry fee for Players: <span style={{ color: "var(--text)" }}>₹{formatPrice(REGISTRATION_PLAYER_FEE)} per person</span>
             </p>
             <p className="text-xs mb-3" style={{ color: "var(--text-dim)" }}>
-              Visitors / non-participants: <span style={{ color: "var(--text)" }}>₹{REGISTRATION_VISITOR_FEE} per person</span>
+              Visitors / non-participants: <span style={{ color: "var(--text)" }}>₹{formatPrice(REGISTRATION_VISITOR_FEE)} per person</span>
             </p>
             <div className="p-3 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
               <div className="text-xs mb-2" style={{ color: "var(--text-faint)" }}>Total amount to pay</div>
@@ -2257,17 +2276,17 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
                 <>
                   <div className="flex items-center justify-between text-xs mb-1" style={{ color: "var(--text-dim)" }}>
                     <span>You ({form.participantType === "visitor" ? "Visitor" : "Player"})</span>
-                    <span>₹{participantFee}</span>
+                    <span>₹{formatPrice(participantFee)}</span>
                   </div>
                   {visitorCount > 0 && (
                     <div className="flex items-center justify-between text-xs mb-1" style={{ color: "var(--text-dim)" }}>
-                      <span>{visitorCount} visitor{visitorCount === 1 ? "" : "s"} × ₹{REGISTRATION_VISITOR_FEE}</span>
-                      <span>₹{visitorCount * REGISTRATION_VISITOR_FEE}</span>
+                      <span>{visitorCount} visitor{visitorCount === 1 ? "" : "s"} × ₹{formatPrice(REGISTRATION_VISITOR_FEE)}</span>
+                      <span>₹{formatPrice(visitorCount * REGISTRATION_VISITOR_FEE)}</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
                     <span className="text-sm font-semibold">Total</span>
-                    <span className="text-lg font-bold" style={{ color: "var(--accent-ink)" }}>₹{totalDue}</span>
+                    <span className="text-lg font-bold" style={{ color: "var(--accent-ink)" }}>₹{formatPrice(totalDue)}</span>
                   </div>
                 </>
               ) : (
@@ -2369,19 +2388,94 @@ function ConfirmModal({ title, message, confirmLabel = "Delete", busy, onConfirm
   );
 }
 
+/* ---------- dual-handle price filter — two overlaid <input type=range>,
+   each pointer-events:none except its own thumb (see the .price-range
+   rules in the global <style> block), so both handles stay independently
+   draggable without any manual hit-testing. ---------- */
+function PriceRangeSlider({ bounds, value, onChange }) {
+  const [boundMin, boundMax] = bounds;
+  const [lo, hi] = value;
+  const span = boundMax - boundMin || 1;
+  const pct = (v) => ((v - boundMin) / span) * 100;
+
+  return (
+    <div>
+      <div className="text-xs mb-1.5 flex items-center justify-between gap-3" style={{ color: "var(--text-faint)" }}>
+        <span>Price</span>
+        <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(lo)} – ₹{formatPrice(hi)}</span>
+      </div>
+      <div className="price-range" style={{ width: 180 }}>
+        <div className="absolute rounded-full" style={{ top: 8, left: 0, right: 0, height: 4, background: "var(--border-strong)" }} />
+        <div
+          className="absolute rounded-full"
+          style={{ top: 8, height: 4, background: "var(--accent)", left: `${pct(lo)}%`, right: `${100 - pct(hi)}%` }}
+        />
+        <input
+          type="range"
+          aria-label="Minimum price"
+          min={boundMin}
+          max={boundMax}
+          value={lo}
+          onChange={(e) => onChange([Math.min(Number(e.target.value), hi), hi])}
+        />
+        <input
+          type="range"
+          aria-label="Maximum price"
+          min={boundMin}
+          max={boundMax}
+          value={hi}
+          onChange={(e) => onChange([lo, Math.max(Number(e.target.value), lo)])}
+        />
+      </div>
+    </div>
+  );
+}
+
 /* ---------- buyer ---------- */
 function BuyerPanel({ products, onAdd, loaded }) {
   const [itemType, setItemType] = useState("All");
   const [condition, setCondition] = useState("All");
+  const [search, setSearch] = useState("");
+
+  // The slider's own range — snapped to what's actually for sale the first
+  // time listings show up, so it starts fully open instead of 0–0.
+  const priceBounds = useMemo(() => {
+    if (!products.length) return [0, 5000];
+    const prices = products.map((p) => p.price);
+    return [Math.min(...prices), Math.max(...prices)];
+  }, [products]);
+  const [priceRange, setPriceRange] = useState(priceBounds);
+  const boundsInit = useRef(false);
+  useEffect(() => {
+    if (!boundsInit.current && products.length) {
+      setPriceRange(priceBounds);
+      boundsInit.current = true;
+    }
+  }, [products.length, priceBounds]);
+
+  const q = search.trim().toLowerCase();
+  const [minPrice, maxPrice] = priceRange;
 
   const shown = products.filter(
     (p) =>
       (itemType === "All" || p.itemType === itemType) &&
-      (condition === "All" || p.condition === condition)
+      (condition === "All" || p.condition === condition) &&
+      (!q || p.name?.toLowerCase().includes(q)) &&
+      p.price >= minPrice && p.price <= maxPrice
   );
 
   return (
     <div>
+      <div className="mb-4 max-w-sm">
+        <div className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>Search</div>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search listings by name"
+          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+          style={fieldStyle()}
+        />
+      </div>
       <div className="flex flex-wrap gap-4 mb-6">
         <div>
           <div className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>Type</div>
@@ -2411,6 +2505,7 @@ function BuyerPanel({ products, onAdd, loaded }) {
             ))}
           </select>
         </div>
+        <PriceRangeSlider bounds={priceBounds} value={priceRange} onChange={setPriceRange} />
       </div>
       {!loaded ? (
         <p className="text-sm" style={{ color: "var(--text-faint)" }}>Loading listings…</p>
@@ -2444,7 +2539,7 @@ function BuyerPanel({ products, onAdd, loaded }) {
                   <span className="text-xs" style={{ color: "var(--text-faint)" }}>{p.beybladeCategory} type</span>
                 )}
                 <div className="flex items-center justify-between">
-                  <span className="disp font-bold text-lg" style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{p.price}</span>
+                  <span className="disp font-bold text-lg" style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(p.price)}</span>
                   <span className="text-xs" style={{ color: "var(--text-faint)" }}>{p.stock} in stock</span>
                 </div>
                 <button
@@ -2709,7 +2804,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{p.name}</div>
-                    <div className="text-xs" style={{ color: "var(--text-faint)" }}>₹{p.price} · {p.itemType} · {p.condition} · {p.stock} in stock</div>
+                    <div className="text-xs" style={{ color: "var(--text-faint)" }}>₹{formatPrice(p.price)} · {p.itemType} · {p.condition} · {p.stock} in stock</div>
                   </div>
                   {confirmRemoveId === p.id ? (
                     <div className="flex gap-1.5 items-center">
@@ -2757,7 +2852,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
             <div key={o.id} className="p-4 rounded-xl flex items-center justify-between flex-wrap gap-2" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
               <div>
                 <div className="text-sm font-medium">{o.buyerName}</div>
-                <div className="text-xs" style={{ color: "var(--text-faint)" }}>{o.items.length} item(s) · ₹{o.total}</div>
+                <div className="text-xs" style={{ color: "var(--text-faint)" }}>{o.items.length} item(s) · ₹{formatPrice(o.total)}</div>
                 {o.shipping ? (
                   <div className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>
                     Ship to: {o.shipping.name} · {o.shipping.phone}<br />
@@ -2919,7 +3014,7 @@ function AdminListings({ products, onRemove }) {
               )}
               <div className="min-w-0">
                 <div className="text-sm font-medium truncate">{p.name}</div>
-                <div className="text-xs" style={{ color: "var(--text-faint)" }}>{p.sellerName} · ₹{p.price} · {p.itemType} · {p.condition}</div>
+                <div className="text-xs" style={{ color: "var(--text-faint)" }}>{p.sellerName} · ₹{formatPrice(p.price)} · {p.itemType} · {p.condition}</div>
               </div>
             </div>
             {confirmId === p.id ? (
@@ -2957,6 +3052,12 @@ function AdminListings({ products, onRemove }) {
       </div>
     </div>
   );
+}
+
+// Indian digit grouping (₹1,00,000, not ₹100,000) — this is a Bangalore
+// marketplace, and prices can run well past four digits for full sets.
+function formatPrice(n) {
+  return Number(n ?? 0).toLocaleString("en-IN");
 }
 
 function formatLastLogin(ts) {
