@@ -1565,7 +1565,7 @@ export default function App() {
             <h3 className="disp font-semibold text-lg">Your Cart</h3>
             <button onClick={() => setCartOpen(false)} className="tap text-sm" style={{ color: "var(--text-dim)" }}>Close</button>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" data-lenis-prevent>
             {cart.length === 0 && <p style={{ color: "var(--text-faint)" }} className="text-sm">Nothing here yet — add parts from the shop.</p>}
             {cart.map((i) => (
               <div key={i.id} className="flex items-center gap-3 text-sm">
@@ -1707,7 +1707,7 @@ export default function App() {
             <h3 className="disp font-semibold text-lg">My Orders</h3>
             <button onClick={() => setOrdersOpen(false)} className="tap text-sm" style={{ color: "var(--text-dim)" }}>Close</button>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" data-lenis-prevent>
             {myOrders.length === 0 && <p style={{ color: "var(--text-faint)" }} className="text-sm">No orders yet.</p>}
             {myOrders.map((o) => (
               <div key={o.id} className="p-4 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
@@ -2438,6 +2438,7 @@ function CataloguePicker({ catalogue, itemType, onSelect, onClose }) {
         </div>
         <div
           className="flex-1 overflow-y-auto px-5 py-4"
+          data-lenis-prevent
           style={{ minHeight: 0, WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}
         >
           {!catalogue ? (
