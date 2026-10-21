@@ -770,6 +770,10 @@ function useSellerOrders(uid, enabled) {
 const ITEM_TYPES = ["Beyblade", "Stadium", "Launcher", "Parts"];
 const CONDITIONS = ["NIB", "NIP", "Used"];
 const BEYBLADE_CATEGORIES = ["Attack", "Defense", "Balance", "Stamina"];
+// Types the synced catalogue (scripts/sync-catalogue.mjs) has photos for —
+// "Parts" stays free-text only since the source site has no single
+// matching category for it.
+const CATALOGUE_ITEM_TYPES = ["Beyblade", "Stadium", "Launcher"];
 
 /* ================= APP ================= */
 
@@ -2349,14 +2353,11 @@ function BuyerPanel({ products, onAdd, loaded }) {
    Lets a seller pick a real released product (name + photo) instead of
    typing a free-text name — see scripts/sync-catalogue.mjs for where
    the data comes from. */
-function CataloguePicker({ catalogue, onSelect, onClose }) {
+function CataloguePicker({ catalogue, itemType, onSelect, onClose }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
-  const shown = !catalogue
-    ? []
-    : q
-    ? catalogue.filter((it) => it.name.toLowerCase().includes(q))
-    : catalogue;
+  const forType = catalogue?.filter((it) => it.itemType === itemType) ?? null;
+  const shown = !forType ? [] : q ? forType.filter((it) => it.name.toLowerCase().includes(q)) : forType;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
@@ -2473,6 +2474,14 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
               Listing as <span style={{ color: "var(--accent-ink)" }}>{seller?.name}</span>.
             </p>
             <form onSubmit={submit} className="space-y-3 p-5 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+              <select
+                value={form.itemType}
+                onChange={(e) => setForm({ ...form, itemType: e.target.value, name: "", image: null })}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={fieldStyle()}
+              >
+                {ITEM_TYPES.map((c) => <option key={c}>{c}</option>)}
+              </select>
               {form.image ? (
                 <div className="flex items-center gap-3 p-2 rounded-lg" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
                   <img
@@ -2493,16 +2502,18 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
                 </div>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => setPickerOpen(true)}
-                    className="tap w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
-                    style={{ border: "1px dashed var(--border-strong)", color: "var(--accent-ink)" }}
-                  >
-                    <Icon name="gallery" size={15} /> Choose from catalogue
-                  </button>
+                  {CATALOGUE_ITEM_TYPES.includes(form.itemType) && (
+                    <button
+                      type="button"
+                      onClick={() => setPickerOpen(true)}
+                      className="tap w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
+                      style={{ border: "1px dashed var(--border-strong)", color: "var(--accent-ink)" }}
+                    >
+                      <Icon name="gallery" size={15} /> Choose from catalogue
+                    </button>
+                  )}
                   <input
-                    placeholder="Or type the item name"
+                    placeholder={CATALOGUE_ITEM_TYPES.includes(form.itemType) ? "Or type the item name" : "Item name"}
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none"
@@ -2529,14 +2540,6 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
                 />
               </div>
               <select
-                value={form.itemType}
-                onChange={(e) => setForm({ ...form, itemType: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                style={fieldStyle()}
-              >
-                {ITEM_TYPES.map((c) => <option key={c}>{c}</option>)}
-              </select>
-              <select
                 value={form.condition}
                 onChange={(e) => setForm({ ...form, condition: e.target.value })}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none"
@@ -2561,6 +2564,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
             {pickerOpen && (
               <CataloguePicker
                 catalogue={catalogue}
+                itemType={form.itemType}
                 onClose={() => setPickerOpen(false)}
                 onSelect={(it) => {
                   setForm({ ...form, name: it.name, image: it.image });
