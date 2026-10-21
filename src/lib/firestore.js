@@ -6,6 +6,7 @@ import {
   getDoc,
   onSnapshot,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -294,6 +295,26 @@ export function listenSellerOrders(uid, cb) {
 }
 export const setOrderStatus = (id, status) =>
   updateDoc(doc(db, "orders", id), { status, updatedAt: serverTimestamp() });
+
+// Seller confirms payment received: marks the order paid and, in the same
+// transaction, takes the sold quantity off each item's stock — so a product
+// that sells out shows "Out of stock" without the seller editing it by hand.
+// Reads-then-writes (Firestore transactions require every get() before any
+// update()), and clamps at 0 rather than going negative.
+export async function markOrderPaid(order) {
+  await runTransaction(db, async (tx) => {
+    const orderRef = doc(db, "orders", order.id);
+    const productRefs = order.items.map((item) => doc(db, "products", item.productId));
+    const snaps = await Promise.all(productRefs.map((ref) => tx.get(ref)));
+    snaps.forEach((snap, i) => {
+      if (!snap.exists()) return;
+      const currentStock = snap.data().stock ?? 0;
+      const nextStock = Math.max(0, currentStock - order.items[i].qty);
+      tx.update(productRefs[i], { stock: nextStock, updatedAt: serverTimestamp() });
+    });
+    tx.update(orderRef, { status: "paid", updatedAt: serverTimestamp() });
+  });
+}
 
 // ---------------- event registrations ----------------
 export const createRegistration = (data) =>

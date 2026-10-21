@@ -36,7 +36,7 @@ import {
   createOrdersForCart,
   listenMyOrders,
   listenSellerOrders,
-  setOrderStatus,
+  markOrderPaid,
   createRegistration,
   listenAllRegistrations,
   setRegistrationStatus,
@@ -1309,8 +1309,8 @@ export default function App() {
               await setUserPaymentInfo(user.uid, info);
               fireToast("Payment info saved");
             }}
-            onMarkPaid={async (orderId) => {
-              await setOrderStatus(orderId, "paid");
+            onMarkPaid={async (order) => {
+              await markOrderPaid(order);
               fireToast("Order marked as paid");
             }}
           />
@@ -2436,7 +2436,10 @@ function CataloguePicker({ catalogue, itemType, onSelect, onClose }) {
             style={fieldStyle()}
           />
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4" style={{ minHeight: 0 }}>
+        <div
+          className="flex-1 overflow-y-auto px-5 py-4"
+          style={{ minHeight: 0, WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}
+        >
           {!catalogue ? (
             <p className="text-sm" style={{ color: "var(--text-faint)" }}>Loading catalogue…</p>
           ) : shown.length === 0 ? (
@@ -2667,7 +2670,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
               </div>
               {o.status === "pending_payment" && (
                 <button
-                  onClick={() => onMarkPaid(o.id)}
+                  onClick={() => onMarkPaid(o)}
                   className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
                   style={{ background: "var(--accent)", color: "#0A0D18" }}
                 >
