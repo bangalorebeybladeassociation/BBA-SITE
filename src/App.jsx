@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import Lenis from "lenis";
 import QRCode from "qrcode";
 import beybladeImg from "./assets/beyblade.webp";
+import heroBeyImg from "./assets/beyblade-purple.webp";
 import bbaLogo from "./assets/bba-logo.webp";
 import bbaLogoLight from "./assets/bba-logo-light.webp";
 import { useAuth } from "./auth/context";
@@ -105,7 +106,7 @@ function Reveal({ children, delay = 0, className = "" }) {
 /* ---------- spinning bey (signature element) ----------
    `speed` is seconds per full rotation. Alt text defaults to
    empty since most instances are decorative.                */
-function SpinningBey({ size = 240, speed = 4, className = "", alt = "" }) {
+function SpinningBey({ size = 240, speed = 4, className = "", alt = "", src = beybladeImg }) {
   return (
     <div className={className} style={{ position: "relative", width: size, height: size }}>
       {/* stadium glow — sits under the bey and does not rotate with it */}
@@ -120,7 +121,7 @@ function SpinningBey({ size = 240, speed = 4, className = "", alt = "" }) {
         }}
       />
       <img
-        src={beybladeImg}
+        src={src}
         alt={alt}
         draggable="false"
         style={{
@@ -1516,7 +1517,7 @@ export default function App() {
         </div>
         <div className="flex-1 flex justify-center">
           <div ref={heroTiltRef} style={{ transition: `transform 400ms ${EASE}` }}>
-            <SpinningBey size={280} alt="Beyblade X top spinning" />
+            <SpinningBey size={280} src={heroBeyImg} alt="Beyblade X top spinning" />
           </div>
         </div>
       </header>
