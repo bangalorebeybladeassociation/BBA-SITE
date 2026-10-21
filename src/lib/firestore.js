@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   onSnapshot,
@@ -33,7 +34,7 @@ export async function upsertUserProfile(fbUser) {
       name: fbUser.displayName || fbUser.email,
       email: fbUser.email,
       photoURL: fbUser.photoURL || null,
-      role: "user",
+      roles: [],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       lastLoginAt: serverTimestamp(),
@@ -64,8 +65,13 @@ export function listenUserProfile(uid, cb) {
   );
 }
 
-export async function setUserRole(uid, role) {
-  await updateDoc(doc(db, "users", uid), { role, updatedAt: serverTimestamp() });
+// A user can hold any combination of roles at once (e.g. admin *and*
+// seller) — roles is the full replacement set, not a single value. Clears
+// the legacy singular `role` field so a doc this touches is fully on the
+// new shape (see firestore.rules' rolesOf() for how old docs still work
+// until then).
+export async function setUserRoles(uid, roles) {
+  await updateDoc(doc(db, "users", uid), { roles, role: deleteField(), updatedAt: serverTimestamp() });
 }
 
 export async function setUserBlocked(uid, blocked) {
@@ -212,15 +218,18 @@ export function listenSellerProducts(uid, cb) {
 export function listenAllProducts(cb) {
   return listenCollection("products", cb);
 }
+// Sellers publish immediately — no admin approval queue (see firestore.rules,
+// which requires status === "approved" on create to match).
 export const createProduct = (data) =>
   addDoc(collection(db, "products"), {
     ...data,
-    status: "pending",
+    status: "approved",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-export const decideProduct = (id, status) =>
-  updateDoc(doc(db, "products", id), { status, updatedAt: serverTimestamp() });
+// Used by both a seller removing their own listing and an admin moderating
+// someone else's — firestore.rules allows either.
+export const deleteProduct = (id) => deleteDoc(doc(db, "products", id));
 
 // ---------------- orders ----------------
 // One order per seller per checkout — payment is a manual per-seller
