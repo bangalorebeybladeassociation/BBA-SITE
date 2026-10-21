@@ -333,7 +333,7 @@ export async function markOrderPaid(order) {
       const nextStock = Math.max(0, currentStock - order.items[i].qty);
       tx.update(productRefs[i], { stock: nextStock, updatedAt: serverTimestamp() });
     });
-    tx.update(orderRef, { status: "paid", updatedAt: serverTimestamp() });
+    tx.update(orderRef, { status: "paid", paidAt: serverTimestamp(), updatedAt: serverTimestamp() });
   });
 }
 
