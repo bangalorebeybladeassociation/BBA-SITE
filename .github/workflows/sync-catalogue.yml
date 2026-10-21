@@ -1,0 +1,51 @@
+name: Sync catalogue
+
+# Copies the Beyblade X product catalogue (Box, Stadium, Grip) into
+# public/catalogue.json + public/catalogue-images/ (used by the seller
+# listing form's "Choose from catalogue" picker). Commits and redeploys
+# only when the catalogue actually changed. Run it by hand from the
+# Actions tab any time.
+on:
+  schedule:
+    - cron: "5 22 * * *" # daily, 03:35 IST — offset from sync-wbo-rules
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write # to start the deploy workflow
+
+concurrency:
+  group: sync-catalogue
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/sync-catalogue.mjs
+
+      - name: Commit and redeploy if the catalogue changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add public/catalogue.json public/catalogue-images
+          if git diff --cached --quiet; then
+            echo "Catalogue unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: sync Beyblade X catalogue"
+          git push
+          # pushes made with the workflow token don't trigger other
+          # workflows, so start the Pages deploy explicitly
+          gh workflow run deploy.yml --ref "${GITHUB_REF_NAME}"

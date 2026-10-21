@@ -5,35 +5,30 @@
    instead of typing a free-text name keeps listings consistent and
    gives every listing a real product photo.
 
-   Source: https://beyblade.phstudy.org (a fan-run Beyblade X database),
-   specifically its "Box" category — complete released products
-   (boosters, starters, sets), the same granularity a seller would
-   actually own and resell.
+   Source: https://beyblade.phstudy.org (a fan-run Beyblade X database).
+   Each entry in CATEGORIES below pulls one of its category pages into
+   one of the marketplace's listing types (see ITEM_TYPES in App.jsx).
 
    The catalogue is rendered client-side (it merges several JSON files
-   under /data/ at runtime), so it can't be scraped with a plain fetch
-   the way this script fetches images. Instead, the item list is
-   extracted once per sync by running this snippet in a browser on
-   https://beyblade.phstudy.org/index.en-US.html?category=Box :
+   under /data/ at runtime), so a plain fetch of the page only gets an
+   empty shell — unlike worldbeyblade.org, though, phstudy.org doesn't
+   block automated requests at all, so a real (headless) browser can
+   load each category page and read the rendered cards directly. Images
+   are then fetched as plain files and self-hosted under
+   public/catalogue-images/, same reasoning as sync-wbo-rules.mjs.
 
-     copy(JSON.stringify(Array.from(document.querySelectorAll('.card-box')).map(card => {
-       const id = (card.getAttribute('onclick') || '').match(/openProductModal\('([^']+)'\)/)?.[1] || null;
-       const img = card.querySelector('img');
-       return { id, thumbSrc: img?.getAttribute('src'), alt: img?.getAttribute('alt') };
-     })))
-
-   ...paste the result into a file and pass it as this script's
-   argument. Images are then fetched directly (phstudy.org doesn't
-   block automated requests, unlike worldbeyblade.org) and self-hosted
-   under public/catalogue-images/, same reasoning as sync-wbo-rules.mjs.
-
-   Usage: node scripts/sync-catalogue.mjs <extracted-items.json>
+   Usage: node scripts/sync-catalogue.mjs
 --------------------------------------------------------- */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { chromium } from "playwright";
 
-const SOURCE_URL = "https://beyblade.phstudy.org/index.en-US.html?category=Box";
-const IMAGE_BASE = "https://beyblade.phstudy.org/";
+const SITE = "https://beyblade.phstudy.org/";
+const CATEGORIES = [
+  { category: "Box", itemType: "Beyblade" },
+  { category: "Stadium", itemType: "Stadium" },
+  { category: "Grip", itemType: "Launcher" },
+];
 const OUT_FILE = new URL("../public/catalogue.json", import.meta.url);
 const IMAGES_DIR = new URL("../public/catalogue-images/", import.meta.url);
 
@@ -42,38 +37,72 @@ function fail(msg) {
   process.exit(1);
 }
 
-const inputPath = process.argv[2];
-if (!inputPath) fail("usage: node scripts/sync-catalogue.mjs <extracted-items.json>");
+async function extractCategory(page, category) {
+  const url = `${SITE}index.en-US.html?category=${category}`;
+  await page.goto(url, { waitUntil: "networkidle" });
+  await page.waitForSelector(".card-box", { timeout: 20000 });
+  return page.$$eval(".card-box", (cards) =>
+    cards.map((card) => {
+      const idMatch = (card.getAttribute("onclick") || "").match(/openProductModal\('([^']+)'/);
+      const img = card.querySelector("img");
+      return {
+        id: idMatch ? idMatch[1] : null,
+        thumbSrc: img?.getAttribute("src") || null,
+        alt: img?.getAttribute("alt") || null,
+      };
+    })
+  );
+}
 
-const raw = JSON.parse(await readFile(inputPath, "utf8"));
-if (!Array.isArray(raw) || raw.length === 0) fail("input file has no items");
+const browser = await chromium.launch();
+let raw;
+try {
+  const page = await browser.newPage();
+  raw = [];
+  for (const { category, itemType } of CATEGORIES) {
+    const entries = await extractCategory(page, category);
+    if (entries.length === 0) fail(`found no cards for category=${category} — has the site's markup changed?`);
+    for (const entry of entries) raw.push({ ...entry, itemType });
+    console.log(`sync-catalogue: ${category} -> ${itemType} (${entries.length} items)`);
+  }
+} finally {
+  await browser.close();
+}
 
 await mkdir(IMAGES_DIR, { recursive: true });
 
 const items = [];
+const seenImageFiles = new Set();
 for (const entry of raw) {
   if (!entry.id || !entry.thumbSrc || !entry.alt) continue;
-  const imageUrl = new URL(entry.thumbSrc, IMAGE_BASE);
+  const imageUrl = new URL(entry.thumbSrc, SITE);
   imageUrl.search = ""; // drop the cache-busting ?v= param
-  const ext = imageUrl.pathname.split(".").pop();
-  const fileName = `${entry.id}.${ext}`;
+  // the same product can appear under more than one category (e.g. a
+  // boxed set that includes a stadium) with a different photo each
+  // time, so the file name comes from the image path, not the id —
+  // keeps every distinct photo while still deduping true repeats.
+  const fileName = imageUrl.pathname.split("/").pop();
 
-  const res = await fetch(new URL(entry.thumbSrc, IMAGE_BASE));
-  if (!res.ok) {
-    console.warn(`sync-catalogue: image fetch failed for ${entry.id} (HTTP ${res.status}), skipping`);
-    continue;
+  if (!seenImageFiles.has(fileName)) {
+    const res = await fetch(imageUrl);
+    if (!res.ok) {
+      console.warn(`sync-catalogue: image fetch failed for ${entry.id} (HTTP ${res.status}), skipping`);
+      continue;
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    await writeFile(new URL(fileName, IMAGES_DIR), buf);
+    seenImageFiles.add(fileName);
   }
-  const buf = Buffer.from(await res.arrayBuffer());
-  await writeFile(new URL(fileName, IMAGES_DIR), buf);
 
   items.push({
     id: entry.id,
     name: entry.alt.replace(/\s+/g, " ").trim(),
     image: `catalogue-images/${fileName}`,
+    itemType: entry.itemType,
   });
 }
 
-if (items.length === 0) fail("no items survived — check the input file");
+if (items.length === 0) fail("no items survived — check the site's markup");
 
 const hash = createHash("sha256").update(JSON.stringify(items)).digest("hex").slice(0, 16);
 let previous = null;
@@ -91,7 +120,7 @@ await writeFile(
   OUT_FILE,
   JSON.stringify(
     {
-      source: SOURCE_URL,
+      source: SITE,
       syncedAt: new Date().toISOString(),
       hash,
       items,
