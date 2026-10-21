@@ -1,9 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Base path matches the GitHub repo name so assets resolve correctly
-// when served from https://<user>.github.io/BBA-SITE/
+// Served from the custom domain (bangaloreba.com) via public/CNAME, so
+// assets resolve from the site root rather than a /<repo-name>/ subpath.
 export default defineConfig({
   plugins: [react()],
-  base: "/BBA-SITE/",
+  base: "/",
 });
