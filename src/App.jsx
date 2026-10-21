@@ -1644,7 +1644,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{i.price * i.qty}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(i.price * i.qty)}</span>
                   <button
                     type="button"
                     onClick={() => removeFromCart(i.id, i.name)}
@@ -1662,7 +1662,7 @@ export default function App() {
           <div className="px-5 py-4" style={{ borderTop: "1px solid var(--border)" }}>
             <div className="flex justify-between mb-3 text-sm">
               <span style={{ color: "var(--text-dim)" }}>Total</span>
-              <span className="font-semibold" style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{cartTotal}</span>
+              <span className="font-semibold" style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(cartTotal)}</span>
             </div>
             {!user && cart.length > 0 && (
               <p className="text-xs mb-3" style={{ color: "var(--text-faint)" }}>
@@ -1726,7 +1726,7 @@ export default function App() {
                 <div key={o.id} className="p-4 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
                   <div className="flex justify-between text-sm mb-2">
                     <span className="font-semibold">{o.sellerName}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{o.total}</span>
+                    <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(o.total)}</span>
                   </div>
                   {o.sellerUpiId ? (
                     <p className="text-xs" style={{ color: "var(--accent-ink)" }}>UPI: {o.sellerUpiId}</p>
@@ -1782,7 +1782,7 @@ export default function App() {
               <div key={o.id} className="p-4 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="font-semibold">{o.sellerName}</span>
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{o.total}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(o.total)}</span>
                 </div>
                 <OrderStatusBadge status={o.status} />
                 {o.shipping && (
@@ -1987,7 +1987,7 @@ function UpiPayButton({ amount, note }) {
       className="tap w-full py-2.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
       style={{ background: "var(--accent2)", color: "#0A0D18" }}
     >
-      <Icon name="wallet" size={15} /> Pay ₹{amount} with GPay / PhonePe / UPI
+      <Icon name="wallet" size={15} /> Pay ₹{formatPrice(amount)} with GPay / PhonePe / UPI
     </a>
   );
 }
@@ -2261,10 +2261,10 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
               <span className="text-sm font-semibold">Payment info</span>
             </div>
             <p className="text-xs" style={{ color: "var(--text-dim)" }}>
-              Entry fee for Players: <span style={{ color: "var(--text)" }}>₹{REGISTRATION_PLAYER_FEE} per person</span>
+              Entry fee for Players: <span style={{ color: "var(--text)" }}>₹{formatPrice(REGISTRATION_PLAYER_FEE)} per person</span>
             </p>
             <p className="text-xs mb-3" style={{ color: "var(--text-dim)" }}>
-              Visitors / non-participants: <span style={{ color: "var(--text)" }}>₹{REGISTRATION_VISITOR_FEE} per person</span>
+              Visitors / non-participants: <span style={{ color: "var(--text)" }}>₹{formatPrice(REGISTRATION_VISITOR_FEE)} per person</span>
             </p>
             <div className="p-3 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
               <div className="text-xs mb-2" style={{ color: "var(--text-faint)" }}>Total amount to pay</div>
@@ -2272,17 +2272,17 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
                 <>
                   <div className="flex items-center justify-between text-xs mb-1" style={{ color: "var(--text-dim)" }}>
                     <span>You ({form.participantType === "visitor" ? "Visitor" : "Player"})</span>
-                    <span>₹{participantFee}</span>
+                    <span>₹{formatPrice(participantFee)}</span>
                   </div>
                   {visitorCount > 0 && (
                     <div className="flex items-center justify-between text-xs mb-1" style={{ color: "var(--text-dim)" }}>
-                      <span>{visitorCount} visitor{visitorCount === 1 ? "" : "s"} × ₹{REGISTRATION_VISITOR_FEE}</span>
-                      <span>₹{visitorCount * REGISTRATION_VISITOR_FEE}</span>
+                      <span>{visitorCount} visitor{visitorCount === 1 ? "" : "s"} × ₹{formatPrice(REGISTRATION_VISITOR_FEE)}</span>
+                      <span>₹{formatPrice(visitorCount * REGISTRATION_VISITOR_FEE)}</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
                     <span className="text-sm font-semibold">Total</span>
-                    <span className="text-lg font-bold" style={{ color: "var(--accent-ink)" }}>₹{totalDue}</span>
+                    <span className="text-lg font-bold" style={{ color: "var(--accent-ink)" }}>₹{formatPrice(totalDue)}</span>
                   </div>
                 </>
               ) : (
@@ -2398,7 +2398,7 @@ function PriceRangeSlider({ bounds, value, onChange }) {
     <div>
       <div className="text-xs mb-1.5 flex items-center justify-between gap-3" style={{ color: "var(--text-faint)" }}>
         <span>Price</span>
-        <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{lo} – ₹{hi}</span>
+        <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(lo)} – ₹{formatPrice(hi)}</span>
       </div>
       <div className="price-range" style={{ width: 180 }}>
         <div className="absolute rounded-full" style={{ top: 8, left: 0, right: 0, height: 4, background: "var(--border-strong)" }} />
@@ -2535,7 +2535,7 @@ function BuyerPanel({ products, onAdd, loaded }) {
                   <span className="text-xs" style={{ color: "var(--text-faint)" }}>{p.beybladeCategory} type</span>
                 )}
                 <div className="flex items-center justify-between">
-                  <span className="disp font-bold text-lg" style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{p.price}</span>
+                  <span className="disp font-bold text-lg" style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(p.price)}</span>
                   <span className="text-xs" style={{ color: "var(--text-faint)" }}>{p.stock} in stock</span>
                 </div>
                 <button
@@ -2800,7 +2800,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{p.name}</div>
-                    <div className="text-xs" style={{ color: "var(--text-faint)" }}>₹{p.price} · {p.itemType} · {p.condition} · {p.stock} in stock</div>
+                    <div className="text-xs" style={{ color: "var(--text-faint)" }}>₹{formatPrice(p.price)} · {p.itemType} · {p.condition} · {p.stock} in stock</div>
                   </div>
                   {confirmRemoveId === p.id ? (
                     <div className="flex gap-1.5 items-center">
@@ -2848,7 +2848,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
             <div key={o.id} className="p-4 rounded-xl flex items-center justify-between flex-wrap gap-2" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
               <div>
                 <div className="text-sm font-medium">{o.buyerName}</div>
-                <div className="text-xs" style={{ color: "var(--text-faint)" }}>{o.items.length} item(s) · ₹{o.total}</div>
+                <div className="text-xs" style={{ color: "var(--text-faint)" }}>{o.items.length} item(s) · ₹{formatPrice(o.total)}</div>
                 {o.shipping ? (
                   <div className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>
                     Ship to: {o.shipping.name} · {o.shipping.phone}<br />
@@ -3010,7 +3010,7 @@ function AdminListings({ products, onRemove }) {
               )}
               <div className="min-w-0">
                 <div className="text-sm font-medium truncate">{p.name}</div>
-                <div className="text-xs" style={{ color: "var(--text-faint)" }}>{p.sellerName} · ₹{p.price} · {p.itemType} · {p.condition}</div>
+                <div className="text-xs" style={{ color: "var(--text-faint)" }}>{p.sellerName} · ₹{formatPrice(p.price)} · {p.itemType} · {p.condition}</div>
               </div>
             </div>
             {confirmId === p.id ? (
@@ -3048,6 +3048,12 @@ function AdminListings({ products, onRemove }) {
       </div>
     </div>
   );
+}
+
+// Indian digit grouping (₹1,00,000, not ₹100,000) — this is a Bangalore
+// marketplace, and prices can run well past four digits for full sets.
+function formatPrice(n) {
+  return Number(n ?? 0).toLocaleString("en-IN");
 }
 
 function formatLastLogin(ts) {
