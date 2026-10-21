@@ -290,19 +290,13 @@ function LeaderboardSection({ rows, eventDefs, season }) {
   const shownRest = expanded ? rest : rest.slice(0, LEADERBOARD_COLLAPSED_REST);
   const hasMore = rest.length > shownRest.length;
   const maxPoints = ranked[0]?.points || 1;
-  const lastEvent = eventDefs[eventDefs.length - 1];
 
   return (
     <div className="relative px-4 py-8 sm:px-8 sm:py-10 rounded-[32px] overflow-hidden">
       <GlassBackdrop />
       <div className="relative" style={{ zIndex: 1 }}>
         <Reveal>
-          <h2 className="disp font-bold text-3xl text-center mb-2">Season {season} Leaderboard</h2>
-          <p className="text-center mb-10" style={{ color: "var(--text-dim)" }}>
-            {eventDefs.length > 0
-              ? `Cumulative points across ${eventDefs.length} events — ranked through ${lastEvent ? lastEvent.label : "the latest event"}.`
-              : "Points from all sanctioned Bangalore events, merged by ranking."}
-          </p>
+          <h2 className="disp font-bold text-3xl text-center mb-8">Season {season} Leaderboard</h2>
         </Reveal>
 
         {topThree.length > 0 && (
