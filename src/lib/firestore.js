@@ -357,6 +357,22 @@ export async function markOrderPaid(order) {
   });
 }
 
+// Undoes an accidental "confirm payment received" — reverses the stock
+// decrement from markOrderPaid and puts the order back to awaiting payment.
+export async function clearOrderPaid(order) {
+  await runTransaction(db, async (tx) => {
+    const orderRef = doc(db, "orders", order.id);
+    const productRefs = order.items.map((item) => doc(db, "products", item.productId));
+    const snaps = await Promise.all(productRefs.map((ref) => tx.get(ref)));
+    snaps.forEach((snap, i) => {
+      if (!snap.exists()) return;
+      const currentStock = snap.data().stock ?? 0;
+      tx.update(productRefs[i], { stock: currentStock + order.items[i].qty, updatedAt: serverTimestamp() });
+    });
+    tx.update(orderRef, { status: "pending_payment", paidAt: deleteField(), updatedAt: serverTimestamp() });
+  });
+}
+
 // ---------------- event registrations ----------------
 export const createRegistration = (data) =>
   addDoc(collection(db, "registrations"), {
