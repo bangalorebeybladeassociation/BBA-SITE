@@ -2373,15 +2373,34 @@ function ConfirmModal({ title, message, confirmLabel = "Delete", busy, onConfirm
 function BuyerPanel({ products, onAdd, loaded }) {
   const [itemType, setItemType] = useState("All");
   const [condition, setCondition] = useState("All");
+  const [search, setSearch] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+
+  const q = search.trim().toLowerCase();
+  const min = minPrice === "" ? -Infinity : Number(minPrice);
+  const max = maxPrice === "" ? Infinity : Number(maxPrice);
 
   const shown = products.filter(
     (p) =>
       (itemType === "All" || p.itemType === itemType) &&
-      (condition === "All" || p.condition === condition)
+      (condition === "All" || p.condition === condition) &&
+      (!q || p.name?.toLowerCase().includes(q)) &&
+      p.price >= min && p.price <= max
   );
 
   return (
     <div>
+      <div className="mb-4 max-w-sm">
+        <div className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>Search</div>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search listings by name"
+          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+          style={fieldStyle()}
+        />
+      </div>
       <div className="flex flex-wrap gap-4 mb-6">
         <div>
           <div className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>Type</div>
@@ -2410,6 +2429,32 @@ function BuyerPanel({ products, onAdd, loaded }) {
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
+        </div>
+        <div>
+          <div className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>Min price</div>
+          <input
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={minPrice}
+            onChange={(e) => setMinPrice(e.target.value)}
+            placeholder="₹0"
+            className="w-24 px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle()}
+          />
+        </div>
+        <div>
+          <div className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>Max price</div>
+          <input
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+            placeholder="Any"
+            className="w-24 px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle()}
+          />
         </div>
       </div>
       {!loaded ? (
