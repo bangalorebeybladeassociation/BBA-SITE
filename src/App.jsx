@@ -1505,11 +1505,6 @@ export default function App() {
             WHERE BANGALORE'S<br />
             <span style={{ color: "var(--accent2-ink)" }}>BLADERS</span> COLLIDE.
           </h1>
-          <p className="mt-5 max-w-md" style={{ color: "var(--text-dim)" }}>
-            Tournament schedules, live brackets, match footage and a
-            marketplace built for the city's Beyblade X community — organized
-            by bladers, judged to WBO standard.
-          </p>
           <div className="mt-8 flex flex-wrap gap-4">
             <a
               href={events[0]?.bracketUrl || "https://challonge.com/"}
@@ -1539,9 +1534,7 @@ export default function App() {
       {/* EVENTS */}
       <section id="events" className="max-w-6xl mx-auto px-5 md:px-10 py-8">
         <Reveal>
-          <h2 className="disp font-bold text-3xl mb-2">Tournament Events</h2>
-          <p style={{ color: "var(--text-dim)" }} className="mb-2">Every event, past and upcoming — tap a bracket to open it live on Challonge.</p>
-          <p className="text-xs mb-10" style={{ color: "var(--text-faint)" }}>New to brackets? Challonge is a free third-party tool that runs the live match tree — you don't need an account to view it, only to compete.</p>
+          <h2 className="disp font-bold text-3xl mb-8">Tournament Events</h2>
         </Reveal>
         {events.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--text-faint)" }}>No events posted yet — check back soon.</p>
