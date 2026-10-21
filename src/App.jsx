@@ -895,6 +895,7 @@ export default function App() {
   const [page, setPage] = useState(readPage);
 
   const events = useEvents();
+  const liveEvent = events.find((e) => e.date === todayDateString());
   const { rows: sheetRows, eventDefs: leaderboardEventDefs, status: sheetStatus, lastSynced: sheetSynced, refresh: refreshSheet } = useLiveLeaderboard();
   const season = useSeason();
   const registrationSettings = useRegistrationSettings();
@@ -1499,24 +1500,19 @@ export default function App() {
             WHERE BANGALORE'S<br />
             <span style={{ color: "var(--accent2-ink)" }}>BLADERS</span> COLLIDE.
           </h1>
-          <div className="mt-8 flex flex-wrap gap-4">
-            <a
-              href={events[0]?.bracketUrl || "https://challonge.com/"}
-              target="_blank"
-              rel="noreferrer"
-              className="tap px-6 py-3 rounded-full font-semibold text-sm"
-              style={{ background: "var(--accent2)", color: "#0A0D18" }}
-            >
-              View Live Bracket ↗
-            </a>
-            <button
-              onClick={() => goPage("market")}
-              className="tap px-6 py-3 rounded-full font-semibold text-sm border"
-              style={{ borderColor: "var(--border-strong)", color: "var(--text)" }}
-            >
-              Browse Marketplace
-            </button>
-          </div>
+          {liveEvent && (
+            <div className="mt-8 flex flex-wrap gap-4">
+              <a
+                href={liveEvent.bracketUrl || "https://challonge.com/"}
+                target="_blank"
+                rel="noreferrer"
+                className="tap px-6 py-3 rounded-full font-semibold text-sm"
+                style={{ background: "var(--accent2)", color: "#0A0D18" }}
+              >
+                View Live Bracket ↗
+              </a>
+            </div>
+          )}
         </div>
         <div className="flex-1 flex justify-center">
           <div ref={heroTiltRef} style={{ transition: `transform 400ms ${EASE}` }}>
@@ -3525,6 +3521,14 @@ function formatEventDate(dateStr) {
   const d = new Date(`${dateStr}T00:00:00`);
   if (isNaN(d.getTime())) return dateStr;
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
+// Local calendar date as YYYY-MM-DD, matching how events store their own
+// date (a native <input type="date"> value) — used to tell whether an
+// event is actually happening today, not just the nearest upcoming one.
+function todayDateString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function AdminRoles({ fireToast, users }) {
