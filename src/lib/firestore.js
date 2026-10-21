@@ -86,8 +86,8 @@ export async function deleteUserProfile(uid) {
   await deleteDoc(doc(db, "users", uid));
 }
 
-export async function setUserPaymentInfo(uid, { upiId, paymentContact }) {
-  await updateDoc(doc(db, "users", uid), { upiId, paymentContact, updatedAt: serverTimestamp() });
+export async function setUserPaymentInfo(uid, { upiId, paymentContact, qrImage }) {
+  await updateDoc(doc(db, "users", uid), { upiId, paymentContact, qrImage: qrImage ?? null, updatedAt: serverTimestamp() });
 }
 
 // Saved so repeat checkouts can prefill it — see createOrdersForCart, which
@@ -149,6 +149,23 @@ export function listenSeason(cb) {
 }
 export async function setSeason(current) {
   await setDoc(doc(db, "settings", "season"), { current, updatedAt: serverTimestamp() });
+}
+
+// settings/registration { upiId, qrImage } — the event organiser's own
+// saved payment QR for tournament registration fees (falls back to the
+// hardcoded REGISTRATION_UPI_ID / an auto-generated QR when unset).
+export function listenRegistrationSettings(cb) {
+  return onSnapshot(
+    doc(db, "settings", "registration"),
+    (snap) => cb(snap.exists() ? snap.data() : {}),
+    (err) => {
+      console.error("listenRegistrationSettings", err);
+      cb({});
+    }
+  );
+}
+export async function setRegistrationSettings({ upiId, qrImage }) {
+  await setDoc(doc(db, "settings", "registration"), { upiId, qrImage: qrImage ?? null, updatedAt: serverTimestamp() });
 }
 
 // ---------------- public stats (hero "Registered bladers" count) ----------------
@@ -263,6 +280,7 @@ export async function createOrdersForCart(cart, buyer, shipping) {
     const sellerProfile = sellerSnap.exists() ? sellerSnap.data() : {};
     const sellerUpiId = sellerProfile.upiId || null;
     const sellerPaymentContact = sellerProfile.paymentContact || null;
+    const sellerQrImage = sellerProfile.qrImage || null;
     const total = group.items.reduce((s, i) => s + i.price * i.qty, 0);
     const ref = await addDoc(collection(db, "orders"), {
       buyerId: buyer.uid,
@@ -274,6 +292,7 @@ export async function createOrdersForCart(cart, buyer, shipping) {
       sellerIds: [group.sellerId],
       sellerUpiId,
       sellerPaymentContact,
+      sellerQrImage,
       items: group.items,
       total,
       status: "pending_payment",
@@ -286,6 +305,7 @@ export async function createOrdersForCart(cart, buyer, shipping) {
       sellerName: group.sellerName,
       sellerUpiId,
       sellerPaymentContact,
+      sellerQrImage,
       total,
     });
   }
