@@ -97,6 +97,10 @@ export async function setUserShippingInfo(uid, shipping) {
   await updateDoc(doc(db, "users", uid), { shipping, updatedAt: serverTimestamp() });
 }
 
+export async function setUserProfileDetails(uid, details) {
+  await updateDoc(doc(db, "users", uid), { ...details, updatedAt: serverTimestamp() });
+}
+
 // admin-only: same "unfiltered list needs isAdmin()" rule as products/orders.
 export function listenAllUsers(cb) {
   return onSnapshot(
