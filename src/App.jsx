@@ -1993,14 +1993,14 @@ export default function App() {
   );
 }
 
-const NAV_LINKS = [
+// Mixes in-page anchors (href, scrolls the home page) and full page routes
+// (page, via goPage) — order here is exactly the hamburger menu's order.
+const NAV_ITEMS = [
   { href: "#events", icon: "events", label: "Events" },
-  { href: "#leaderboard", icon: "leaderboard", label: "Leaderboard" },
-  { href: "#media", icon: "media", label: "Media" },
-];
-const NAV_PAGES = [
   { page: "market", icon: "shop", label: "Marketplace" },
+  { href: "#leaderboard", icon: "leaderboard", label: "Leaderboard" },
   { page: "rulebook", icon: "rulebook", label: "Rulebook" },
+  { href: "#media", icon: "media", label: "Media" },
 ];
 
 /* ---------- nav menu ----------
@@ -2045,30 +2045,32 @@ function NavMenu() {
             animation: "pop-in 180ms cubic-bezier(0.32,0.72,0,1)",
           }}
         >
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              onClick={() => setOpen(false)}
-              className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
-              style={{ color: "var(--text)", borderBottom: "1px solid var(--border)" }}
-            >
-              <Icon name={link.icon} /> {link.label}
-            </a>
-          ))}
-          {NAV_PAGES.map((link, i) => (
-            <button
-              key={link.page}
-              onClick={() => {
-                setOpen(false);
-                goPage(link.page);
-              }}
-              className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
-              style={{ color: "var(--text)", borderBottom: i < NAV_PAGES.length - 1 ? "1px solid var(--border)" : "none" }}
-            >
-              <Icon name={link.icon} /> {link.label}
-            </button>
-          ))}
+          {NAV_ITEMS.map((link, i) => {
+            const borderBottom = i < NAV_ITEMS.length - 1 ? "1px solid var(--border)" : "none";
+            return link.href ? (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
+                style={{ color: "var(--text)", borderBottom }}
+              >
+                <Icon name={link.icon} /> {link.label}
+              </a>
+            ) : (
+              <button
+                key={link.page}
+                onClick={() => {
+                  setOpen(false);
+                  goPage(link.page);
+                }}
+                className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
+                style={{ color: "var(--text)", borderBottom }}
+              >
+                <Icon name={link.icon} /> {link.label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
