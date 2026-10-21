@@ -1238,6 +1238,18 @@ export default function App() {
         .field-input { transition: border-color 200ms ${EASE}, box-shadow 200ms ${EASE}, transform 150ms ${EASE}; }
         .field-input:focus { outline: none; border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(0,230,195,0.16); }
         .field-input:focus-within { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(0,230,195,0.16); }
+        /* Every filter <select> in the app shares this — a single flat
+           chevron instead of each browser's own native arrow, so dropdowns
+           read as one consistent, minimal control everywhere they appear. */
+        .select-field {
+          appearance: none; -webkit-appearance: none; -moz-appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A8194' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+          background-repeat: no-repeat !important;
+          background-position: right 10px center !important;
+          background-size: 14px !important;
+          padding-right: 30px !important;
+          cursor: pointer;
+        }
         .price-range { position: relative; height: 20px; }
         .price-range input[type="range"] {
           position: absolute; top: 0; left: 0; width: 100%; height: 20px; margin: 0;
@@ -2781,7 +2793,7 @@ function BuyerPanel({ products, onAdd, loaded }) {
           <select
             value={itemType}
             onChange={(e) => setItemType(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm outline-none"
+            className="field-input select-field px-3 py-2 rounded-lg text-sm outline-none"
             style={fieldStyle()}
           >
             <option value="All">All</option>
@@ -2795,7 +2807,7 @@ function BuyerPanel({ products, onAdd, loaded }) {
           <select
             value={condition}
             onChange={(e) => setCondition(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm outline-none"
+            className="field-input select-field px-3 py-2 rounded-lg text-sm outline-none"
             style={fieldStyle()}
           >
             <option value="All">All</option>
@@ -3030,7 +3042,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
               <select
                 value={form.itemType}
                 onChange={(e) => setForm({ ...form, itemType: e.target.value, name: "", image: null })}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                className="field-input select-field w-full px-3 py-2 rounded-lg text-sm outline-none"
                 style={fieldStyle()}
               >
                 {ITEM_TYPES.map((c) => <option key={c}>{c}</option>)}
@@ -3095,7 +3107,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
               <select
                 value={form.condition}
                 onChange={(e) => setForm({ ...form, condition: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                className="field-input select-field w-full px-3 py-2 rounded-lg text-sm outline-none"
                 style={fieldStyle()}
               >
                 {CONDITIONS.map((c) => <option key={c}>{c}</option>)}
@@ -3104,7 +3116,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
                 <select
                   value={form.beybladeCategory}
                   onChange={(e) => setForm({ ...form, beybladeCategory: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  className="field-input select-field w-full px-3 py-2 rounded-lg text-sm outline-none"
                   style={fieldStyle()}
                 >
                   {BEYBLADE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
@@ -3531,6 +3543,8 @@ function formatEventDate(dateStr) {
 function AdminRoles({ fireToast, users }) {
   const { user: currentUser } = useAuth();
   const [filter, setFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [blockedFilter, setBlockedFilter] = useState("");
   const [busyUid, setBusyUid] = useState(null);
   const [confirmUid, setConfirmUid] = useState(null);
 
@@ -3580,17 +3594,57 @@ function AdminRoles({ fireToast, users }) {
   const q = filter.trim().toLowerCase();
   const shown = users
     .filter((u) => !q || u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q))
+    .filter((u) => {
+      if (!roleFilter) return true;
+      const roles = rolesOf(u);
+      return roleFilter === "user" ? roles.length === 0 : roles.includes(roleFilter);
+    })
+    .filter((u) => !blockedFilter || (blockedFilter === "blocked") === Boolean(u.blocked))
     .sort((a, b) => (b.lastLoginAt?.toMillis?.() ?? 0) - (a.lastLoginAt?.toMillis?.() ?? 0));
+
+  // Overview reflects the filters above, same as Sales/Registrations.
+  const adminCount = shown.filter((u) => rolesOf(u).includes("admin")).length;
+  const sellerCount = shown.filter((u) => rolesOf(u).includes("seller")).length;
+  const blockedCount = shown.filter((u) => u.blocked).length;
 
   return (
     <div>
-      <input
-        placeholder="Filter by name or email"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        className="w-full max-w-sm px-3 py-2 rounded-lg text-sm outline-none mb-5"
-        style={fieldStyle()}
-      />
+      <div className="flex flex-wrap gap-3 mb-5 max-w-lg">
+        <StatTile label="Total users" value={shown.length} color="var(--accent-ink)" />
+        <StatTile label="Admins" value={adminCount} color="var(--accent-ink)" />
+        <StatTile label="Sellers" value={sellerCount} color="var(--accent-ink)" />
+        <StatTile label="Blocked" value={blockedCount} color="var(--danger)" />
+      </div>
+      <div className="flex gap-2 flex-wrap mb-5">
+        <input
+          placeholder="Filter by name or email"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="field-input w-full max-w-sm px-3 py-2 rounded-lg text-sm outline-none"
+          style={fieldStyle()}
+        />
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          className="field-input select-field px-3 py-2 rounded-lg text-sm outline-none"
+          style={fieldStyle()}
+        >
+          <option value="">All roles</option>
+          <option value="admin">Admin</option>
+          <option value="seller">Seller</option>
+          <option value="user">User only</option>
+        </select>
+        <select
+          value={blockedFilter}
+          onChange={(e) => setBlockedFilter(e.target.value)}
+          className="field-input select-field px-3 py-2 rounded-lg text-sm outline-none"
+          style={fieldStyle()}
+        >
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="blocked">Blocked</option>
+        </select>
+      </div>
       {shown.length === 0 ? (
         <p className="text-sm" style={{ color: "var(--text-faint)" }}>
           {users.length === 0 ? "No one has signed in yet." : "No matches."}
@@ -4111,28 +4165,28 @@ function AdminRegistrations({ registrations, onSetStatus, onDelete }) {
           className="w-full max-w-sm px-3 py-2 rounded-lg text-sm outline-none"
           style={fieldStyle()}
         />
-        <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value)} className="px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
+        <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value)} className="field-input select-field px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
           <option value="">All ages</option>
           {REGISTRATION_AGE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="field-input select-field px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
           <option value="">All types</option>
           <option value="player">Player</option>
           <option value="visitor">Visitor</option>
         </select>
-        <select value={productsFilter} onChange={(e) => setProductsFilter(e.target.value)} className="px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
+        <select value={productsFilter} onChange={(e) => setProductsFilter(e.target.value)} className="field-input select-field px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
           <option value="">Products: all</option>
           <option value="yes">Has products</option>
           <option value="no">No products</option>
         </select>
-        <select value={visitorFilter} onChange={(e) => setVisitorFilter(e.target.value)} className="px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
+        <select value={visitorFilter} onChange={(e) => setVisitorFilter(e.target.value)} className="field-input select-field px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
           <option value="">Visitor: all</option>
           <option value="yes">Has visitor</option>
           <option value="no">No visitor</option>
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="field-input select-field px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle()}>
           <option value="">All statuses</option>
           <option value="pending">Pending</option>
           <option value="confirmed">Payment Confirmed</option>
