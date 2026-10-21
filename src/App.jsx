@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import Lenis from "lenis";
 import QRCode from "qrcode";
 import beybladeImg from "./assets/beyblade.webp";
-import heroBeyImg from "./assets/beyblade-purple.webp";
+import eventsBeyImg from "./assets/beyblade-purple.webp";
 import bbaLogo from "./assets/bba-logo.webp";
 import bbaLogoLight from "./assets/bba-logo-light.webp";
 import { useAuth } from "./auth/context";
@@ -1517,7 +1517,7 @@ export default function App() {
         </div>
         <div className="flex-1 flex justify-center">
           <div ref={heroTiltRef} style={{ transition: `transform 400ms ${EASE}` }}>
-            <SpinningBey size={280} src={heroBeyImg} alt="Beyblade X top spinning" />
+            <SpinningBey size={280} alt="Beyblade X top spinning" />
           </div>
         </div>
       </header>
@@ -3954,7 +3954,7 @@ function EventsTimeline({ events, onRegister }) {
                 className="rounded-xl shrink-0 flex items-center justify-center"
                 style={{ width: 64, height: 64, background: "var(--border)" }}
               >
-                <SpinningBey size={40} speed={i % 2 ? 2.2 : 3} />
+                <SpinningBey size={40} speed={i % 2 ? 2.2 : 3} src={eventsBeyImg} />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
