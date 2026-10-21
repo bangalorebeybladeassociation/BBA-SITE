@@ -44,6 +44,7 @@ import {
   listenMyOrders,
   listenSellerOrders,
   markOrderPaid,
+  clearOrderPaid,
   createRegistration,
   listenAllRegistrations,
   setRegistrationStatus,
@@ -1384,6 +1385,10 @@ export default function App() {
             onMarkPaid={async (order) => {
               await markOrderPaid(order);
               fireToast("Order marked as paid");
+            }}
+            onClearPaid={async (order) => {
+              await clearOrderPaid(order);
+              fireToast("Payment confirmation cleared");
             }}
           />
         </DashboardPage>
@@ -2910,7 +2915,7 @@ function CataloguePicker({ catalogue, itemType, onSelect, onClose }) {
 }
 
 /* ---------- seller ---------- */
-function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, onRemoveListing, onSavePaymentInfo, onMarkPaid, fireToast }) {
+function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, onRemoveListing, onSavePaymentInfo, onMarkPaid, onClearPaid, fireToast }) {
   const [tab, setTab] = useState("listings");
   const [form, setForm] = useState({
     name: "",
@@ -2925,6 +2930,9 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
   const [qrBusy, setQrBusy] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [confirmRemoveId, setConfirmRemoveId] = useState(null);
+  const [salesSearch, setSalesSearch] = useState("");
+  const [salesDateFrom, setSalesDateFrom] = useState("");
+  const [salesDateTo, setSalesDateTo] = useState("");
 
   useEffect(() => {
     if (profile) {
@@ -2967,6 +2975,20 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
     });
     resetForm();
   };
+
+  const salesQuery = salesSearch.trim().toLowerCase();
+  const shownOrders = orders
+    .filter((o) => {
+      if (salesQuery && !o.buyerName?.toLowerCase().includes(salesQuery)) return false;
+      if (salesDateFrom || salesDateTo) {
+        const placed = o.createdAt?.toDate?.();
+        if (!placed) return false;
+        if (salesDateFrom && placed < new Date(`${salesDateFrom}T00:00:00`)) return false;
+        if (salesDateTo && placed > new Date(`${salesDateTo}T23:59:59`)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
 
   return (
     <div>
@@ -3145,9 +3167,39 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
       )}
 
       {tab === "sales" && (
-        <div className="space-y-2 max-w-xl">
-          {orders.length === 0 && <p className="text-sm" style={{ color: "var(--text-faint)" }}>No sales yet.</p>}
-          {orders.map((o) => (
+        <div className="max-w-xl">
+          <div className="flex flex-wrap gap-3 mb-4">
+            <input
+              placeholder="Search by buyer name"
+              value={salesSearch}
+              onChange={(e) => setSalesSearch(e.target.value)}
+              className="flex-1 min-w-[160px] px-3 py-2 rounded-lg text-sm outline-none"
+              style={fieldStyle()}
+            />
+            <input
+              type="date"
+              aria-label="From date"
+              value={salesDateFrom}
+              onChange={(e) => setSalesDateFrom(e.target.value)}
+              className="px-3 py-2 rounded-lg text-sm outline-none"
+              style={fieldStyle()}
+            />
+            <input
+              type="date"
+              aria-label="To date"
+              value={salesDateTo}
+              onChange={(e) => setSalesDateTo(e.target.value)}
+              className="px-3 py-2 rounded-lg text-sm outline-none"
+              style={fieldStyle()}
+            />
+          </div>
+          <div className="space-y-2">
+          {orders.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--text-faint)" }}>No sales yet.</p>
+          ) : shownOrders.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--text-faint)" }}>No sales match these filters.</p>
+          ) : null}
+          {shownOrders.map((o) => (
             <div key={o.id} className="p-4 rounded-xl flex items-center justify-between flex-wrap gap-2" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
               <div>
                 <div className="text-sm font-medium">{o.buyerName}</div>
@@ -3171,7 +3223,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
                   </div>
                 )}
               </div>
-              {o.status === "pending_payment" && (
+              {o.status === "pending_payment" ? (
                 <button
                   onClick={() => onMarkPaid(o)}
                   className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
@@ -3179,9 +3231,19 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
                 >
                   Confirm payment received
                 </button>
-              )}
+              ) : o.status === "paid" ? (
+                <button
+                  onClick={() => onClearPaid(o)}
+                  title="Undo — marks it back as awaiting payment"
+                  className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
+                  style={{ background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text-dim)" }}
+                >
+                  Clear payment
+                </button>
+              ) : null}
             </div>
           ))}
+          </div>
         </div>
       )}
 
