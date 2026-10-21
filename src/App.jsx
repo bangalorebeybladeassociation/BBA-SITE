@@ -1488,7 +1488,7 @@ export default function App() {
       ) : (
       <>
       {/* HERO */}
-      <header className="relative overflow-hidden px-5 md:px-10 pt-24 pb-24 flex flex-col md:flex-row items-center gap-10 max-w-6xl mx-auto">
+      <header className="relative overflow-hidden px-5 md:px-10 pt-24 pb-6 flex flex-col md:flex-row items-center gap-10 max-w-6xl mx-auto">
         <div className="flex-1">
           <div
             className="inline-block px-3 py-1 rounded-full text-xs font-semibold mb-5"
@@ -1522,7 +1522,7 @@ export default function App() {
       </header>
 
       {/* EVENTS */}
-      <section id="events" className="max-w-6xl mx-auto px-5 md:px-10 py-8">
+      <section id="events" className="max-w-6xl mx-auto px-5 md:px-10 pt-2 pb-8">
         <Reveal>
           <h2 className="disp font-bold text-3xl mb-8">Tournament Events</h2>
         </Reveal>
