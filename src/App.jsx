@@ -2844,7 +2844,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
                 </select>
               )}
               <button type="submit" className="tap w-full py-2.5 rounded-full text-sm font-semibold" style={{ background: "var(--accent)", color: "#0A0D18" }}>
-                Submit for approval
+                Publish listing
               </button>
             </form>
             {pickerOpen && (
