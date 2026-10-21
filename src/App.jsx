@@ -3,6 +3,7 @@ import Lenis from "lenis";
 import beybladeImg from "./assets/beyblade.webp";
 import bbaLogo from "./assets/bba-logo.webp";
 import { useAuth } from "./auth/context";
+import { rolesOf } from "./lib/roles";
 import AuthPage from "./pages/AuthPage";
 import AccountMenu from "./components/AccountMenu";
 import Icon from "./components/Icon";
@@ -26,9 +27,9 @@ import {
   listenSellerProducts,
   listenAllProducts,
   createProduct,
-  decideProduct,
+  deleteProduct,
   listenUserProfile,
-  setUserRole,
+  setUserRoles,
   setUserBlocked,
   deleteUserProfile,
   setUserPaymentInfo,
@@ -1291,7 +1292,7 @@ export default function App() {
       {page === "seller" && isSeller ? (
         <DashboardPage
           icon="seller"
-          title="Seller Dashboard"
+          title="Seller"
           subtitle="Manage your listings, sales, and payment info."
           onBack={leavePage}
         >
@@ -1303,7 +1304,11 @@ export default function App() {
             catalogue={catalogue}
             onCreate={async (p) => {
               await createProduct(p);
-              fireToast("Listing submitted for admin approval");
+              fireToast("Listing published");
+            }}
+            onRemoveListing={async (id) => {
+              await deleteProduct(id);
+              fireToast("Listing removed");
             }}
             onSavePaymentInfo={async (info) => {
               await setUserPaymentInfo(user.uid, info);
@@ -1318,15 +1323,15 @@ export default function App() {
       ) : page === "admin" && isAdmin ? (
         <DashboardPage
           icon="admin"
-          title="Admin Dashboard"
+          title="Admin"
           subtitle="Manage roles, listings, events, the leaderboard, and the rulebook."
           onBack={leavePage}
         >
           <AdminPanel
             products={allProducts}
-            onDecide={async (id, status) => {
-              await decideProduct(id, status);
-              fireToast(status === "approved" ? "Listing approved" : "Listing rejected");
+            onRemoveListing={async (id) => {
+              await deleteProduct(id);
+              fireToast("Listing removed");
             }}
             events={events}
             leaderboard={leaderboard}
@@ -2474,7 +2479,7 @@ function CataloguePicker({ catalogue, itemType, onSelect, onClose }) {
 }
 
 /* ---------- seller ---------- */
-function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, onSavePaymentInfo, onMarkPaid }) {
+function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, onRemoveListing, onSavePaymentInfo, onMarkPaid }) {
   const [tab, setTab] = useState("listings");
   const [form, setForm] = useState({
     name: "",
@@ -2487,6 +2492,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
   });
   const [payForm, setPayForm] = useState({ upiId: "", paymentContact: "" });
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null);
 
   useEffect(() => {
     if (profile) {
@@ -2638,7 +2644,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
             <div className="space-y-2">
               {products.length === 0 && <p className="text-sm" style={{ color: "var(--text-faint)" }}>No listings yet.</p>}
               {products.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                <div key={p.id} className="flex items-center gap-3 px-4 py-3 rounded-xl flex-wrap" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
                   {p.image && (
                     <img
                       src={`${import.meta.env.BASE_URL}${p.image}`}
@@ -2649,9 +2655,40 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{p.name}</div>
-                    <div className="text-xs" style={{ color: "var(--text-faint)" }}>₹{p.price} · {p.itemType} · {p.condition}</div>
+                    <div className="text-xs" style={{ color: "var(--text-faint)" }}>₹{p.price} · {p.itemType} · {p.condition} · {p.stock} in stock</div>
                   </div>
-                  <StatusBadge status={p.status} />
+                  {confirmRemoveId === p.id ? (
+                    <div className="flex gap-1.5 items-center">
+                      <span className="text-xs" style={{ color: "var(--bronze)" }}>Remove?</span>
+                      <button
+                        onClick={() => {
+                          onRemoveListing(p.id);
+                          setConfirmRemoveId(null);
+                        }}
+                        className="tap px-2.5 py-1 rounded-full text-xs font-semibold"
+                        style={{ background: "var(--accent2)", color: "#0A0D18" }}
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        onClick={() => setConfirmRemoveId(null)}
+                        className="tap px-2.5 py-1 rounded-full text-xs font-semibold"
+                        style={{ border: "1px solid var(--border-strong)", color: "var(--text-dim)" }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmRemoveId(p.id)}
+                      aria-label={`Remove ${p.name}`}
+                      title="Remove listing"
+                      className="tap flex items-center justify-center rounded-full shrink-0"
+                      style={{ width: 28, height: 28, border: "1px solid var(--border-strong)", color: "var(--danger)" }}
+                    >
+                      <Icon name="remove" size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -2721,7 +2758,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
 /* ---------- admin ---------- */
 function AdminPanel({
   products,
-  onDecide,
+  onRemoveListing,
   events,
   leaderboard,
   sheetStatus,
@@ -2754,7 +2791,7 @@ function AdminPanel({
         active={tab}
         onChange={setTab}
       />
-      {tab === "listings" && <AdminListings products={products} onDecide={onDecide} />}
+      {tab === "listings" && <AdminListings products={products} onRemove={onRemoveListing} />}
       {tab === "roles" && <AdminRoles fireToast={fireToast} users={users} />}
       {tab === "events" && <AdminEvents events={events} season={season} fireToast={fireToast} />}
       {tab === "registrations" && (
@@ -2777,27 +2814,37 @@ function AdminPanel({
   );
 }
 
-function AdminListings({ products, onDecide }) {
-  const pending = products.filter((p) => p.status === "pending");
-  const stats = {
-    total: products.length,
-    approved: products.filter((p) => p.status === "approved").length,
-    pending: pending.length,
-  };
+// Sellers publish without approval now (see createProduct/firestore.rules),
+// so this is a moderation view over everything live, not a review queue.
+function AdminListings({ products, onRemove }) {
+  const [filter, setFilter] = useState("");
+  const [confirmId, setConfirmId] = useState(null);
+
+  const q = filter.trim().toLowerCase();
+  const shown = products.filter(
+    (p) => !q || p.name?.toLowerCase().includes(q) || p.sellerName?.toLowerCase().includes(q)
+  );
+
   return (
     <div>
-      <div className="grid grid-cols-3 gap-4 mb-8 max-w-md">
-        {[["Total", stats.total], ["Live", stats.approved], ["Pending", stats.pending]].map(([l, n]) => (
-          <div key={l} className="p-4 rounded-xl text-center" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-            <div className="disp font-bold text-2xl" style={{ color: "var(--accent-ink)" }}>{n}</div>
-            <div className="text-xs" style={{ color: "var(--text-faint)" }}>{l}</div>
-          </div>
-        ))}
+      <div className="p-4 rounded-xl text-center max-w-[140px] mb-6" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <div className="disp font-bold text-2xl" style={{ color: "var(--accent-ink)" }}>{products.length}</div>
+        <div className="text-xs" style={{ color: "var(--text-faint)" }}>Total listings</div>
       </div>
-      <h3 className="font-semibold mb-3">Pending approvals</h3>
-      {pending.length === 0 && <p className="text-sm" style={{ color: "var(--text-faint)" }}>Nothing waiting on review.</p>}
+      <input
+        placeholder="Filter by name or seller"
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        className="w-full max-w-sm px-3 py-2 rounded-lg text-sm outline-none mb-5"
+        style={fieldStyle()}
+      />
+      {shown.length === 0 && (
+        <p className="text-sm" style={{ color: "var(--text-faint)" }}>
+          {products.length === 0 ? "No listings yet." : "No matches."}
+        </p>
+      )}
       <div className="space-y-2">
-        {pending.map((p) => (
+        {shown.map((p) => (
           <div key={p.id} className="flex items-center justify-between px-4 py-3 rounded-xl flex-wrap gap-2" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
             <div className="flex items-center gap-3 min-w-0">
               {p.image && (
@@ -2813,10 +2860,36 @@ function AdminListings({ products, onDecide }) {
                 <div className="text-xs" style={{ color: "var(--text-faint)" }}>{p.sellerName} · ₹{p.price} · {p.itemType} · {p.condition}</div>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => onDecide(p.id, "approved")} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: "var(--accent)", color: "#0A0D18" }}>Approve</button>
-              <button onClick={() => onDecide(p.id, "rejected")} className="tap px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text)" }}>Reject</button>
-            </div>
+            {confirmId === p.id ? (
+              <div className="flex gap-1.5 flex-wrap items-center">
+                <span className="text-xs" style={{ color: "var(--bronze)" }}>Remove for good?</span>
+                <button
+                  onClick={() => {
+                    onRemove(p.id);
+                    setConfirmId(null);
+                  }}
+                  className="tap px-2.5 py-1 rounded-full text-xs font-semibold"
+                  style={{ background: "var(--accent2)", color: "#0A0D18" }}
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setConfirmId(null)}
+                  className="tap px-2.5 py-1 rounded-full text-xs font-semibold"
+                  style={{ border: "1px solid var(--border-strong)", color: "var(--text-dim)" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmId(p.id)}
+                className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
+                style={{ background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text)" }}
+              >
+                Remove
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -2847,12 +2920,15 @@ function AdminRoles({ fireToast, users }) {
   const [busyUid, setBusyUid] = useState(null);
   const [confirmUid, setConfirmUid] = useState(null);
 
-  const assign = async (u, role) => {
-    if (role === u.role) return;
+  // Roles are additive, not exclusive — toggling "seller" on an admin
+  // leaves them admin and seller both.
+  const toggleRole = async (u, role) => {
+    const current = rolesOf(u);
+    const next = current.includes(role) ? current.filter((r) => r !== role) : [...current, role];
     setBusyUid(u.uid);
     try {
-      await setUserRole(u.uid, role);
-      fireToast(`${u.name} is now ${role}`);
+      await setUserRoles(u.uid, next);
+      fireToast(next.includes(role) ? `${u.name} is now ${role}` : `${u.name} is no longer ${role}`);
     } finally {
       setBusyUid(null);
     }
@@ -2940,21 +3016,25 @@ function AdminRoles({ fireToast, users }) {
                   </td>
                   <td className="px-4 py-3 snap-start">
                     <div className="flex gap-1.5 flex-wrap">
-                      {["user", "seller", "admin"].map((r) => (
-                        <button
-                          key={r}
-                          disabled={busyUid === u.uid || u.role === r}
-                          onClick={() => assign(u, r)}
-                          className="tap px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
-                          style={{
-                            background: u.role === r ? "var(--accent)" : "transparent",
-                            color: u.role === r ? "#0A0D18" : "var(--text-dim)",
-                            border: u.role === r ? "none" : "1px solid var(--border-strong)",
-                          }}
-                        >
-                          <Icon name={r} size={13} /> {r}
-                        </button>
-                      ))}
+                      {["seller", "admin"].map((r) => {
+                        const active = rolesOf(u).includes(r);
+                        return (
+                          <button
+                            key={r}
+                            disabled={busyUid === u.uid}
+                            onClick={() => toggleRole(u, r)}
+                            title={active ? `Remove ${r} role` : `Grant ${r} role`}
+                            className="tap px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
+                            style={{
+                              background: active ? "var(--accent)" : "transparent",
+                              color: active ? "#0A0D18" : "var(--text-dim)",
+                              border: active ? "none" : "1px solid var(--border-strong)",
+                            }}
+                          >
+                            <Icon name={r} size={13} /> {r}
+                          </button>
+                        );
+                      })}
                     </div>
                   </td>
                   <td className="px-4 py-3 snap-start snap-always">
@@ -3922,20 +4002,6 @@ function AdminInstagram({ posts, fireToast }) {
         </div>
       )}
     </div>
-  );
-}
-
-function StatusBadge({ status }) {
-  const map = {
-    approved: ["var(--accent)", "Live"],
-    pending: ["var(--gold)", "Pending"],
-    rejected: ["var(--accent2)", "Rejected"],
-  };
-  const [color, label] = map[status] || map.pending;
-  return (
-    <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: color + "1A", color }}>
-      {label}
-    </span>
   );
 }
 

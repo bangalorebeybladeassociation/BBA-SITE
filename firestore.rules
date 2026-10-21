@@ -18,15 +18,32 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(uid)).data;
     }
 
+    // A user can hold any combination of roles (e.g. admin *and* seller).
+    // roles is the current field (an array); role (singular string) is the
+    // legacy shape from before multi-role support — read as a one-item
+    // array so old user docs keep working without a migration. Takes the
+    // doc's data directly (not a uid) so callers that already have it
+    // loaded as `resource.data` don't trigger an extra get().
+    function rolesOf(d) {
+      return d.get('roles', null) != null
+        ? d.get('roles', [])
+        : (d.get('role', 'user') == 'user' ? [] : [d.get('role', 'user')]);
+    }
+
+    function userRoles(uid) {
+      return rolesOf(userDoc(uid));
+    }
+
     function isAdmin() {
       return isBootstrapAdmin() ||
         (signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          userDoc(request.auth.uid).role == 'admin');
+          'admin' in userRoles(request.auth.uid));
     }
 
     function isSeller() {
-      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        userDoc(request.auth.uid).role == 'seller';
+      return isAdmin() ||
+        (signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          'seller' in userRoles(request.auth.uid));
     }
 
     function isBlocked() {
@@ -42,15 +59,18 @@ service cloud.firestore {
       // A seller's name/UPI/contact is semi-public by nature of listing in
       // the marketplace — buyers need to read it at checkout to pay them.
       allow get: if signedIn() &&
-        (request.auth.uid == uid || isAdmin() || resource.data.role == 'seller');
+        (request.auth.uid == uid || isAdmin() ||
+          'seller' in rolesOf(resource.data));
       allow list: if isAdmin();
       allow create: if signedIn() && request.auth.uid == uid &&
-        request.resource.data.role == 'user';
-      // role and blocked are admin-only fields — a self-update must leave
-      // both exactly as they were.
+        request.resource.data.get('roles', []) == [] &&
+        !('role' in request.resource.data);
+      // roles/role and blocked are admin-only fields — a self-update must
+      // leave all of them exactly as they were.
       allow update: if signedIn() && (
         (request.auth.uid == uid &&
-          request.resource.data.role == resource.data.role &&
+          request.resource.data.get('roles', []) == resource.data.get('roles', []) &&
+          request.resource.data.get('role', 'user') == resource.data.get('role', 'user') &&
           request.resource.data.get('blocked', false) == resource.data.get('blocked', false)) ||
         isAdmin()
       );
@@ -106,9 +126,13 @@ service cloud.firestore {
     match /products/{id} {
       allow read: if resource.data.status == 'approved' ||
         (signedIn() && (resource.data.sellerId == request.auth.uid || isAdmin()));
+      // Sellers publish immediately — no admin approval queue. status stays
+      // on the doc (an admin can still take a listing down after the fact
+      // via delete, or repurpose status for moderation later) but every
+      // new listing starts live.
       allow create: if signedIn() && !isBlocked() && (isSeller() || isAdmin()) &&
         request.resource.data.sellerId == request.auth.uid &&
-        request.resource.data.status == 'pending';
+        request.resource.data.status == 'approved';
       allow update: if signedIn() && (
         (resource.data.sellerId == request.auth.uid &&
           request.resource.data.sellerId == resource.data.sellerId &&

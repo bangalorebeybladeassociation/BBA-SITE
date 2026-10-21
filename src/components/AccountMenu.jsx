@@ -89,7 +89,7 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
               className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2"
               style={{ color: "var(--text)", borderBottom: "1px solid var(--border)" }}
             >
-              <Icon name="seller" /> Seller dashboard
+              <Icon name="seller" /> Seller
             </button>
           )}
           {isAdmin && (
@@ -101,7 +101,7 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
               className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2"
               style={{ color: "var(--text)", borderBottom: "1px solid var(--border)" }}
             >
-              <Icon name="admin" /> Admin dashboard
+              <Icon name="admin" /> Admin
             </button>
           )}
           <button

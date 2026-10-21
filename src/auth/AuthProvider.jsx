@@ -10,6 +10,7 @@ import {
 import { AuthContext } from "./context";
 import { auth, firebaseReady, googleProvider, isAdminEmail } from "../lib/firebase";
 import { listenUserProfile, upsertUserProfile } from "../lib/firestore";
+import { rolesOf } from "../lib/roles";
 
 function toAppUser(fbUser) {
   if (!fbUser) return null;
@@ -30,7 +31,7 @@ function toAppUser(fbUser) {
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(firebaseReady);
-  const [firestoreRole, setFirestoreRole] = useState(null);
+  const [firestoreRoles, setFirestoreRoles] = useState([]);
   const [blockedNotice, setBlockedNotice] = useState(false);
 
   // While signUp() is applying a display name, the auth-state listener can
@@ -60,11 +61,11 @@ export default function AuthProvider({ children }) {
               setBlockedNotice(true);
               return;
             }
-            setFirestoreRole(profile?.role || "user");
+            setFirestoreRoles(rolesOf(profile));
           });
         });
       } else {
-        setFirestoreRole(null);
+        setFirestoreRoles([]);
       }
     });
     return () => {
@@ -73,14 +74,14 @@ export default function AuthProvider({ children }) {
     };
   }, []);
 
-  const isAdmin = isAdminEmail(user?.email) || firestoreRole === "admin";
-  const isSeller = firestoreRole === "seller" || isAdmin;
+  const isAdmin = isAdminEmail(user?.email) || firestoreRoles.includes("admin");
+  const isSeller = firestoreRoles.includes("seller") || isAdmin;
 
   const value = useMemo(
     () => ({
       user,
       loading,
-      firestoreRole,
+      firestoreRoles,
       isAdmin,
       isSeller,
       blockedNotice,
@@ -108,7 +109,7 @@ export default function AuthProvider({ children }) {
         await signOut(auth);
       },
     }),
-    [user, loading, firestoreRole, isAdmin, isSeller, blockedNotice]
+    [user, loading, firestoreRoles, isAdmin, isSeller, blockedNotice]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
