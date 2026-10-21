@@ -1,11 +1,11 @@
 /* ---------------------------------------------------------
    Tiny query-string router for the Seller/Admin dashboards and
    the Rulebook — same pattern as authRoute.js. ?page=seller|admin
-   |rulebook swaps the whole page in, reached from the nav menu
-   rather than an inline tab switcher.
+   |rulebook|market|profile swaps the whole page in, reached from
+   the nav menu rather than an inline tab switcher.
 --------------------------------------------------------- */
 export const PAGE_EVENT = "bba:page-route-change";
-const PAGES = ["seller", "admin", "rulebook", "market"];
+const PAGES = ["seller", "admin", "rulebook", "market", "profile"];
 
 export function readPage() {
   if (typeof window === "undefined") return null;

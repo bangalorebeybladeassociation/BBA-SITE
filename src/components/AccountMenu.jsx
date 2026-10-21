@@ -80,6 +80,16 @@ export default function AccountMenu({ onSignedOut, onOpenOrders }) {
           >
             My orders
           </button>
+          <button
+            onClick={() => {
+              setOpen(false);
+              goPage("profile");
+            }}
+            className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2"
+            style={{ color: "var(--text)", borderBottom: "1px solid var(--border)" }}
+          >
+            <Icon name="user" /> Profile
+          </button>
           {isSeller && (
             <button
               onClick={() => {

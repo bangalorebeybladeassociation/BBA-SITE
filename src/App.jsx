@@ -35,6 +35,7 @@ import {
   deleteUserProfile,
   setUserPaymentInfo,
   setUserShippingInfo,
+  setUserProfileDetails,
   listenAllUsers,
   createOrdersForCart,
   listenMyOrders,
@@ -962,7 +963,8 @@ export default function App() {
     if (authLoading) return;
     if (page === "seller" && !isSeller) leavePage();
     if (page === "admin" && !isAdmin) leavePage();
-  }, [page, authLoading, isSeller, isAdmin]);
+    if (page === "profile" && !user) leavePage();
+  }, [page, authLoading, isSeller, isAdmin, user]);
 
   /* Landing on an auth route with a session means sign-in just succeeded —
      either from this page, or from a Google redirect that reloaded us back
@@ -1431,6 +1433,13 @@ export default function App() {
             <BuyerPanel products={approvedProducts} onAdd={addToCart} loaded={productsLoaded} />
           </div>
         </DashboardPage>
+      ) : page === "profile" && user ? (
+        <ProfilePage
+          profile={myProfile}
+          onSave={(details) => setUserProfileDetails(user.uid, details)}
+          fireToast={fireToast}
+          onBack={leavePage}
+        />
       ) : (
       <>
       {/* HERO */}
@@ -1963,6 +1972,68 @@ function DashboardPage({ icon, title, subtitle, onBack, children }) {
       )}
       {children}
     </div>
+  );
+}
+
+function ProfilePage({ profile, onSave, onBack, fireToast }) {
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    address: "",
+    age: "",
+    wboBladerName: "",
+    challongeBladerName: "",
+  });
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setForm({
+        firstName: profile.firstName || "",
+        lastName: profile.lastName || "",
+        address: profile.address || "",
+        age: profile.age || "",
+        wboBladerName: profile.wboBladerName || "",
+        challongeBladerName: profile.challongeBladerName || "",
+      });
+    }
+  }, [profile]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onSave(form);
+      fireToast("Profile updated");
+    } catch {
+      fireToast("Couldn't save — please try again");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <DashboardPage icon="user" title="Profile" subtitle="Your personal and blader details." onBack={onBack}>
+      <form onSubmit={submit} className="max-w-md space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <IconField icon="user" label="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+          <IconField icon="user" label="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+        </div>
+        <IconField icon="pin" label="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+        <IconField icon="info" label="Age" type="number" min="0" value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value })} />
+        <IconField icon="blade" label="WBO Blader name" value={form.wboBladerName} onChange={(e) => setForm({ ...form, wboBladerName: e.target.value })} />
+        <IconField icon="link" label="Challonge Blader name" value={form.challongeBladerName} onChange={(e) => setForm({ ...form, challongeBladerName: e.target.value })} />
+        <button
+          type="submit"
+          disabled={busy}
+          className="tap w-full py-2.5 rounded-full text-sm font-semibold mt-2"
+          style={{ background: "var(--accent2)", color: "#0A0D18", opacity: busy ? 0.6 : 1 }}
+        >
+          {busy ? "Saving…" : "Save profile"}
+        </button>
+      </form>
+    </DashboardPage>
   );
 }
 
