@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import Lenis from "lenis";
 import beybladeImg from "./assets/beyblade.webp";
 import bbaLogo from "./assets/bba-logo.webp";
+import bbaLogoLight from "./assets/bba-logo-light.webp";
 import { useAuth } from "./auth/context";
 import { rolesOf } from "./lib/roles";
 import AuthPage from "./pages/AuthPage";
@@ -864,6 +865,9 @@ function useSmoothScroll() {
 export default function App() {
   const { lenisRef, heroTiltRef, scrollBeyRef, backToTopRef } = useSmoothScroll();
   const [theme, setTheme] = useTheme();
+  // The dark-theme mark's ring/lettering is near-white — it washes out
+  // against a light background, so light theme gets a black-outlined variant.
+  const logoSrc = theme === "light" ? bbaLogoLight : bbaLogo;
   const [nav, setNav] = useState(false);
   const [toast, fireToast] = useToast();
   const [cart, setCart] = useState([]);
@@ -1245,7 +1249,7 @@ export default function App() {
           inside this wrapper so the font import, .disp/.tap classes and
           keyframes above still apply. */}
       {route.mode ? (
-        <AuthPage mode={route.mode} next={route.next} onClose={leaveAuth} />
+        <AuthPage mode={route.mode} next={route.next} onClose={leaveAuth} theme={theme} />
       ) : registerEvent ? (
         <RegistrationPage
           event={registerEvent}
@@ -1273,7 +1277,7 @@ export default function App() {
           <NavMenu />
           <a href="#top" onClick={() => leavePage()} className="tap flex items-center gap-2.5">
             <div style={{ width: 34, height: 34, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
-              <img src={bbaLogo} alt="Bangalore Beyblade Association" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <img src={logoSrc} alt="Bangalore Beyblade Association" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </div>
             {/* full name where there's room; the association's own BBA mark below that */}
             <span className="disp font-bold tracking-wide text-lg hidden lg:inline">
@@ -1562,7 +1566,7 @@ export default function App() {
 
       <footer className="flex flex-col items-center gap-3 text-center text-xs py-10" style={{ color: "var(--text-faint)" }}>
         <div style={{ width: 72, height: 72, borderRadius: "50%", overflow: "hidden", opacity: 0.85 }}>
-          <img src={bbaLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <img src={logoSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         </div>
         <p>
           Bangalore Beyblade Association — run by bladers, for bladers. Not affiliated with TAKARA TOMY.

@@ -4,6 +4,7 @@ import { goAuth } from "../lib/authRoute";
 import { firebaseReady } from "../lib/firebase";
 import beybladeImg from "../assets/beyblade.webp";
 import bbaLogo from "../assets/bba-logo.webp";
+import bbaLogoLight from "../assets/bba-logo-light.webp";
 
 const EASE = "cubic-bezier(0.32,0.72,0,1)";
 
@@ -54,7 +55,7 @@ function Field({ label, ...props }) {
   );
 }
 
-export default function AuthPage({ mode, next, onClose }) {
+export default function AuthPage({ mode, next, onClose, theme }) {
   const { signUp, signIn, signInWithGoogle } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -115,7 +116,7 @@ export default function AuthPage({ mode, next, onClose }) {
         <div className="flex items-center justify-center gap-2 mb-1">
           <div style={{ width: 22, height: 22, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
             <img
-              src={bbaLogo}
+              src={theme === "light" ? bbaLogoLight : bbaLogo}
               alt="Bangalore Beyblade Association"
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
