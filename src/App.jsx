@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Lenis from "lenis";
+import QRCode from "qrcode";
 import beybladeImg from "./assets/beyblade.webp";
 import bbaLogo from "./assets/bba-logo.webp";
 import bbaLogoLight from "./assets/bba-logo-light.webp";
@@ -18,6 +19,8 @@ import {
   deleteEvent,
   listenSeason,
   setSeason,
+  listenRegistrationSettings,
+  setRegistrationSettings,
   syncMemberCount,
   listenRulebook,
   setRulebook,
@@ -505,6 +508,15 @@ function useSeason() {
   return season;
 }
 
+function useRegistrationSettings() {
+  const [settings, setSettings] = useState({});
+  useEffect(() => {
+    if (!firebaseReady) return;
+    return listenRegistrationSettings(setSettings);
+  }, []);
+  return settings;
+}
+
 function useRulebookText() {
   const [text, setText] = useState("");
   useEffect(() => {
@@ -890,6 +902,7 @@ export default function App() {
   const events = useEvents();
   const { rows: sheetRows, eventDefs: leaderboardEventDefs, status: sheetStatus, lastSynced: sheetSynced, refresh: refreshSheet } = useLiveLeaderboard();
   const season = useSeason();
+  const registrationSettings = useRegistrationSettings();
   const leaderboard = sheetRows.map((r) => ({ ...r, season }));
   const rulebookText = useRulebookText();
   const wboRules = useWboRules();
@@ -1270,6 +1283,7 @@ export default function App() {
           event={registerEvent}
           user={user}
           fireToast={fireToast}
+          registrationSettings={registrationSettings}
           onClose={() => setRegisterEvent(null)}
         />
       ) : (
@@ -1354,6 +1368,7 @@ export default function App() {
             products={sellerProducts}
             orders={sellerOrders}
             catalogue={catalogue}
+            fireToast={fireToast}
             onCreate={async (p) => {
               await createProduct(p);
               fireToast("Listing published");
@@ -1408,6 +1423,11 @@ export default function App() {
               fireToast("Registration deleted");
             }}
             instagramPosts={instagramPosts}
+            registrationSettings={registrationSettings}
+            onSaveRegistrationSettings={async (settings) => {
+              await setRegistrationSettings(settings);
+              fireToast("Payment settings saved");
+            }}
           />
         </DashboardPage>
       ) : page === "rulebook" ? (
@@ -1816,13 +1836,26 @@ export default function App() {
                   {o.sellerPaymentContact && (
                     <p className="text-xs mb-2" style={{ color: "var(--text-dim)" }}>Contact: {o.sellerPaymentContact}</p>
                   )}
-                  {o.sellerUpiId ? (
-                    <UpiPayButton
-                      upiId={o.sellerUpiId}
-                      payeeName={o.sellerName}
-                      amount={o.total}
-                      note={`BBA order ${shortOrderId(o.id)}`}
-                    />
+                  {o.sellerQrImage || o.sellerUpiId ? (
+                    <>
+                      <div className="flex justify-center mb-3">
+                        <PaymentQr
+                          savedImage={o.sellerQrImage}
+                          upiId={o.sellerUpiId}
+                          payeeName={o.sellerName}
+                          amount={o.total}
+                          note={`BBA order ${shortOrderId(o.id)}`}
+                        />
+                      </div>
+                      {o.sellerUpiId && (
+                        <UpiPayButton
+                          upiId={o.sellerUpiId}
+                          payeeName={o.sellerName}
+                          amount={o.total}
+                          note={`BBA order ${shortOrderId(o.id)}`}
+                        />
+                      )}
+                    </>
                   ) : (
                     <p className="text-xs" style={{ color: "var(--text-faint)" }}>Seller hasn't added a UPI ID yet — contact them directly.</p>
                   )}
@@ -1883,14 +1916,26 @@ export default function App() {
                     {o.shipping.pincode ? ` ${o.shipping.pincode}` : ""}
                   </p>
                 )}
-                {o.status === "pending_payment" && o.sellerUpiId && (
+                {o.status === "pending_payment" && (o.sellerQrImage || o.sellerUpiId) && (
                   <div className="mt-2">
-                    <UpiPayButton
-                      upiId={o.sellerUpiId}
-                      payeeName={o.sellerName}
-                      amount={o.total}
-                      note={`BBA order ${shortOrderId(o.id)}`}
-                    />
+                    <div className="flex justify-center mb-2">
+                      <PaymentQr
+                        savedImage={o.sellerQrImage}
+                        upiId={o.sellerUpiId}
+                        payeeName={o.sellerName}
+                        amount={o.total}
+                        note={`BBA order ${shortOrderId(o.id)}`}
+                        size={120}
+                      />
+                    </div>
+                    {o.sellerUpiId && (
+                      <UpiPayButton
+                        upiId={o.sellerUpiId}
+                        payeeName={o.sellerName}
+                        amount={o.total}
+                        note={`BBA order ${shortOrderId(o.id)}`}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -2156,6 +2201,54 @@ function UpiPayButton({ upiId, payeeName, amount, note }) {
   );
 }
 
+// The upi:// scheme the pay button links to only resolves on a phone that
+// has a UPI app installed to claim it — on desktop, or a phone without one,
+// clicking it just errors. A QR of the same link sidesteps that: scan it
+// with any UPI app's own scanner instead of relying on the OS link handler.
+// Generated client-side (no third-party QR API sees the payee/amount).
+function UpiQr({ upiId, payeeName, amount, note, size = 150 }) {
+  const [dataUrl, setDataUrl] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    QRCode.toDataURL(buildUpiLink(upiId, payeeName, amount, note), { width: size, margin: 1 })
+      .then((url) => { if (!cancelled) setDataUrl(url); })
+      .catch((err) => console.error("UpiQr: failed to render QR", err));
+    return () => { cancelled = true; };
+  }, [upiId, payeeName, amount, note, size]);
+
+  if (!dataUrl) return null;
+  return (
+    <img
+      src={dataUrl}
+      alt={`UPI QR code to pay ₹${formatPrice(amount)} to ${payeeName}`}
+      width={size}
+      height={size}
+      style={{ borderRadius: 10, background: "#fff", padding: 8, display: "block" }}
+    />
+  );
+}
+
+// A seller or event organiser's own saved QR (their bank/UPI app's actual
+// code, screenshotted and uploaded — see the Payment tab / AdminPayment)
+// takes priority over the auto-generated one, since it's the one their
+// account is actually verified against.
+function PaymentQr({ savedImage, upiId, payeeName, amount, note, size = 150 }) {
+  if (savedImage) {
+    return (
+      <img
+        src={savedImage}
+        alt={`UPI QR code to pay ${payeeName}`}
+        width={size}
+        height={size}
+        style={{ borderRadius: 10, background: "#fff", padding: 8, objectFit: "contain", display: "block" }}
+      />
+    );
+  }
+  if (!upiId) return null;
+  return <UpiQr upiId={upiId} payeeName={payeeName} amount={amount} note={note} size={size} />;
+}
+
 // Firestore doc ids are 20 opaque chars — not something a buyer and
 // seller can read out to each other to match up a payment, so every UPI
 // note and sales-log line uses this short, human-sayable reference instead.
@@ -2222,7 +2315,7 @@ function CopyUpiButton({ copied, onCopy }) {
 /* ---------- event registration — full in-app form matching BBA's
    participant registration spec, payment handled as a manual UPI
    handoff (same pattern as marketplace orders).                  */
-function RegistrationPage({ event, user, onClose, fireToast }) {
+function RegistrationPage({ event, user, onClose, fireToast, registrationSettings }) {
   const [form, setForm] = useState({
     participantName: "",
     bladerName: "",
@@ -2238,8 +2331,12 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
   const [done, setDone] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // An admin can override the registration UPI ID / QR from the Payment
+  // tab (see AdminPayment) — fall back to the hardcoded default until one's set.
+  const effectiveUpiId = registrationSettings?.upiId || REGISTRATION_UPI_ID;
+
   const copyUpi = () => {
-    navigator.clipboard?.writeText(REGISTRATION_UPI_ID);
+    navigator.clipboard?.writeText(effectiveUpiId);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   };
@@ -2311,16 +2408,27 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
           <div className="p-4 rounded-xl mb-5" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
             <div className="text-xs mb-1" style={{ color: "var(--text-faint)" }}>UPI ID</div>
             <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="text-sm font-semibold" style={{ color: "var(--accent-ink)" }}>{REGISTRATION_UPI_ID}</span>
+              <span className="text-sm font-semibold" style={{ color: "var(--accent-ink)" }}>{effectiveUpiId}</span>
               <CopyUpiButton copied={copied} onCopy={copyUpi} />
             </div>
             {totalDue > 0 && (
-              <UpiPayButton
-                upiId={REGISTRATION_UPI_ID}
-                payeeName="Bangalore Beyblade Association"
-                amount={totalDue}
-                note={`${event.name} registration`}
-              />
+              <>
+                <div className="flex justify-center mb-3">
+                  <PaymentQr
+                    savedImage={registrationSettings?.qrImage}
+                    upiId={effectiveUpiId}
+                    payeeName="Bangalore Beyblade Association"
+                    amount={totalDue}
+                    note={`${event.name} registration`}
+                  />
+                </div>
+                <UpiPayButton
+                  upiId={effectiveUpiId}
+                  payeeName="Bangalore Beyblade Association"
+                  amount={totalDue}
+                  note={`${event.name} registration`}
+                />
+              </>
             )}
           </div>
           <button onClick={onClose} className="tap w-full py-2.5 rounded-full text-sm font-semibold" style={{ background: "var(--accent)", color: "#0A0D18" }}>
@@ -2802,7 +2910,7 @@ function CataloguePicker({ catalogue, itemType, onSelect, onClose }) {
 }
 
 /* ---------- seller ---------- */
-function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, onRemoveListing, onSavePaymentInfo, onMarkPaid }) {
+function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, onRemoveListing, onSavePaymentInfo, onMarkPaid, fireToast }) {
   const [tab, setTab] = useState("listings");
   const [form, setForm] = useState({
     name: "",
@@ -2813,15 +2921,32 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
     condition: "NIB",
     beybladeCategory: "Attack",
   });
-  const [payForm, setPayForm] = useState({ upiId: "", paymentContact: "" });
+  const [payForm, setPayForm] = useState({ upiId: "", paymentContact: "", qrImage: null });
+  const [qrBusy, setQrBusy] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [confirmRemoveId, setConfirmRemoveId] = useState(null);
 
   useEffect(() => {
     if (profile) {
-      setPayForm({ upiId: profile.upiId || "", paymentContact: profile.paymentContact || "" });
+      setPayForm({ upiId: profile.upiId || "", paymentContact: profile.paymentContact || "", qrImage: profile.qrImage || null });
     }
   }, [profile]);
+
+  const onQrFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setQrBusy(true);
+    try {
+      const dataUrl = await readImageAsDataUrl(file);
+      setPayForm((f) => ({ ...f, qrImage: dataUrl }));
+    } catch (err) {
+      console.error("QR upload failed", err);
+      fireToast?.("Couldn't read that image — try a different file");
+    } finally {
+      setQrBusy(false);
+    }
+  };
 
   const resetForm = () =>
     setForm({ name: "", image: null, price: "", stock: "", itemType: "Beyblade", condition: "NIB", beybladeCategory: "Attack" });
@@ -3086,6 +3211,33 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
             className="w-full px-3 py-2 rounded-lg text-sm outline-none"
             style={fieldStyle()}
           />
+
+          <div>
+            <p className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>
+              Payment QR code (optional) — upload your own UPI app's QR so buyers can scan it directly, instead of relying on the pay button (which only works on a phone with a UPI app installed).
+            </p>
+            {payForm.qrImage && (
+              <div className="flex items-center gap-3 mb-2 p-2 rounded-lg" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
+                <img src={payForm.qrImage} alt="Your saved payment QR" width={56} height={56} style={{ borderRadius: 6, background: "#fff", objectFit: "contain" }} />
+                <button
+                  type="button"
+                  onClick={() => setPayForm({ ...payForm, qrImage: null })}
+                  className="tap text-xs font-semibold"
+                  style={{ color: "var(--danger)" }}
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+            <label
+              className="tap inline-block px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer"
+              style={{ border: "1px solid var(--border-strong)", color: "var(--text)", opacity: qrBusy ? 0.6 : 1 }}
+            >
+              {qrBusy ? "Reading…" : payForm.qrImage ? "Replace QR image" : "Upload QR image"}
+              <input type="file" accept="image/*" onChange={onQrFileChange} disabled={qrBusy} className="sr-only" />
+            </label>
+          </div>
+
           <button type="submit" className="tap w-full py-2.5 rounded-full text-sm font-semibold" style={{ background: "var(--accent)", color: "#0A0D18" }}>
             Save
           </button>
@@ -3113,6 +3265,8 @@ function AdminPanel({
   onSetRegistrationStatus,
   onDeleteRegistration,
   instagramPosts,
+  registrationSettings,
+  onSaveRegistrationSettings,
 }) {
   const [tab, setTab] = useState("listings");
 
@@ -3127,6 +3281,7 @@ function AdminPanel({
           ["leaderboard", "Leaderboard"],
           ["rulebook", "Rulebook"],
           ["instagram", "Instagram"],
+          ["payment", "Payment"],
         ]}
         active={tab}
         onChange={setTab}
@@ -3136,6 +3291,9 @@ function AdminPanel({
       {tab === "events" && <AdminEvents events={events} season={season} fireToast={fireToast} />}
       {tab === "registrations" && (
         <AdminRegistrations registrations={registrations} onSetStatus={onSetRegistrationStatus} onDelete={onDeleteRegistration} />
+      )}
+      {tab === "payment" && (
+        <AdminPayment settings={registrationSettings} onSave={onSaveRegistrationSettings} fireToast={fireToast} />
       )}
       {tab === "leaderboard" && (
         <AdminLeaderboard
@@ -3247,6 +3405,33 @@ function formatLastLogin(ts) {
   if (!ts) return "Never";
   const date = typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
   return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+// Downscales an uploaded image into a small JPEG data URL, stored inline on
+// the Firestore doc — there's no file-storage backend in this project, and
+// a QR screenshot shrunk to a few hundred px comfortably fits a document
+// (Firestore's 1MB/doc limit) instead of needing one.
+function readImageAsDataUrl(file, maxSize = 500, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error("Couldn't read file"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Couldn't read image"));
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 /* Events store their date as a plain YYYY-MM-DD string (native <input
@@ -3946,6 +4131,87 @@ function AdminRegistrations({ registrations, onSetStatus, onDelete }) {
         />
       )}
     </div>
+  );
+}
+
+// Event registration's own UPI ID + payment QR — separate from any
+// seller's, since registration fees go to the club, not a marketplace
+// seller. Falls back to REGISTRATION_UPI_ID / an auto-generated QR
+// (see RegistrationPage) until an admin sets these.
+function AdminPayment({ settings, onSave, fireToast }) {
+  const [form, setForm] = useState({ upiId: "", qrImage: null });
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setForm({ upiId: settings?.upiId || "", qrImage: settings?.qrImage || null });
+  }, [settings]);
+
+  const onFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      const dataUrl = await readImageAsDataUrl(file);
+      setForm((f) => ({ ...f, qrImage: dataUrl }));
+    } catch (err) {
+      console.error("QR upload failed", err);
+      fireToast?.("Couldn't read that image — try a different file");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(form);
+      }}
+      className="space-y-3 p-5 rounded-2xl max-w-sm"
+      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+    >
+      <p className="text-xs mb-1" style={{ color: "var(--text-faint)" }}>
+        Shown to bladers paying their tournament entry fee — overrides the default {REGISTRATION_UPI_ID}.
+      </p>
+      <input
+        placeholder={`UPI ID (default: ${REGISTRATION_UPI_ID})`}
+        value={form.upiId}
+        onChange={(e) => setForm({ ...form, upiId: e.target.value })}
+        className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+        style={fieldStyle()}
+      />
+
+      <div>
+        <p className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>
+          Payment QR code (optional) — upload the club's own UPI QR so it scans reliably on desktop, where a pay-with-app link doesn't work.
+        </p>
+        {form.qrImage && (
+          <div className="flex items-center gap-3 mb-2 p-2 rounded-lg" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
+            <img src={form.qrImage} alt="Saved registration payment QR" width={56} height={56} style={{ borderRadius: 6, background: "#fff", objectFit: "contain" }} />
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, qrImage: null })}
+              className="tap text-xs font-semibold"
+              style={{ color: "var(--danger)" }}
+            >
+              Remove
+            </button>
+          </div>
+        )}
+        <label
+          className="tap inline-block px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer"
+          style={{ border: "1px solid var(--border-strong)", color: "var(--text)", opacity: busy ? 0.6 : 1 }}
+        >
+          {busy ? "Reading…" : form.qrImage ? "Replace QR image" : "Upload QR image"}
+          <input type="file" accept="image/*" onChange={onFileChange} disabled={busy} className="sr-only" />
+        </label>
+      </div>
+
+      <button type="submit" className="tap w-full py-2.5 rounded-full text-sm font-semibold" style={{ background: "var(--accent)", color: "#0A0D18" }}>
+        Save
+      </button>
+    </form>
   );
 }
 

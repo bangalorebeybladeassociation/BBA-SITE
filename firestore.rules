@@ -103,8 +103,9 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // single doc: settings/season { current: number } — drives the
-    // "Season N" badges/headings and tags new leaderboard entries.
+    // small admin-managed config docs, e.g. settings/season { current }
+    // and settings/registration { upiId, qrImage } — public read since
+    // visitors need them (to see the season badge, or pay registration).
     match /settings/{id} {
       allow read: if true;
       allow write: if isAdmin();
