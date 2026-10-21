@@ -513,12 +513,14 @@ function useRegistrationSettings() {
   return settings;
 }
 
-function useRulebookText() {
+// Only the public Rulebook page and the admin's own Rulebook editor tab
+// need this live — everywhere else was an idle listener for no reason.
+function useRulebookText(enabled) {
   const [text, setText] = useState("");
   useEffect(() => {
-    if (!firebaseReady) return;
+    if (!enabled || !firebaseReady) return;
     return listenRulebook(setText);
-  }, []);
+  }, [enabled]);
   return text;
 }
 
@@ -675,10 +677,17 @@ function InstagramTile({ src, title }) {
   );
 }
 
-function useApprovedProducts() {
+// Only the Marketplace page actually shows this list — streaming the
+// whole products collection to every visitor regardless of what page
+// they're on was burning Firestore read quota for nothing.
+function useApprovedProducts(enabled) {
   const [products, setProducts] = useState([]);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
+    if (!enabled) {
+      setLoaded(false);
+      return;
+    }
     if (!firebaseReady) {
       setLoaded(true);
       return;
@@ -687,7 +696,7 @@ function useApprovedProducts() {
       setProducts(list);
       setLoaded(true);
     });
-  }, []);
+  }, [enabled]);
   return [products, loaded];
 }
 
@@ -901,7 +910,7 @@ export default function App() {
   const season = useSeason();
   const registrationSettings = useRegistrationSettings();
   const leaderboard = sheetRows.map((r) => ({ ...r, season }));
-  const rulebookText = useRulebookText();
+  const rulebookText = useRulebookText(page === "rulebook" || page === "admin");
   const wboRules = useWboRules();
   const catalogue = useCatalogue();
   const instagramPosts = useInstagramPosts();
@@ -923,7 +932,7 @@ export default function App() {
     }));
   }, [myProfile, user]);
 
-  const [approvedProducts, productsLoaded] = useApprovedProducts();
+  const [approvedProducts, productsLoaded] = useApprovedProducts(page === "market");
   const sellerProducts = useSellerProducts(isSeller ? user?.uid : null);
   const allProducts = useAllProducts(isAdmin);
   const allUsers = useAllUsers(isAdmin);
