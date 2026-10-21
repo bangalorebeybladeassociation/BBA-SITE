@@ -2645,6 +2645,18 @@ function fieldStyle() {
   return { background: "var(--bg)", border: "1px solid var(--border-strong)", color: "var(--text)" };
 }
 
+/* ---------- small overview tile, reused by the seller Sales tab and
+   admin Registrations for a filtered-set summary (total received,
+   pending count, etc.) ---------- */
+function StatTile({ label, value, color = "var(--accent-ink)" }) {
+  return (
+    <div className="p-4 rounded-xl text-center flex-1" style={{ minWidth: 140, background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <div className="disp font-bold text-2xl" style={{ color, fontFamily: "'JetBrains Mono',monospace" }}>{value}</div>
+      <div className="text-xs mt-0.5" style={{ color: "var(--text-faint)" }}>{label}</div>
+    </div>
+  );
+}
+
 /* ---------- generic centered confirm popup, reused for destructive actions ---------- */
 function ConfirmModal({ title, message, confirmLabel = "Delete", busy, onConfirm, onCancel }) {
   return (
@@ -2990,6 +3002,11 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
     })
     .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
 
+  // Overview reflects the filters above — e.g. narrow to a date range and
+  // these totals narrow with it, rather than always summing everything.
+  const receivedTotal = shownOrders.filter((o) => o.status === "paid").reduce((s, o) => s + o.total, 0);
+  const pendingCount = shownOrders.filter((o) => o.status === "pending_payment").length;
+
   return (
     <div>
       <TabStrip
@@ -3168,6 +3185,10 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
 
       {tab === "sales" && (
         <div className="max-w-xl">
+          <div className="flex flex-wrap gap-3 mb-5">
+            <StatTile label="Payment received" value={`₹${formatPrice(receivedTotal)}`} color="var(--accent-ink)" />
+            <StatTile label="Pending requests" value={pendingCount} color="var(--gold)" />
+          </div>
           <div className="flex flex-wrap gap-3 mb-4">
             <input
               placeholder="Search by buyer name"
@@ -4052,6 +4073,10 @@ function AdminRegistrations({ registrations, onSetStatus, onDelete }) {
     .filter((r) => !statusFilter || (r.status || "pending") === statusFilter)
     .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
 
+  // Overview reflects the filters above, same as the seller Sales tab.
+  const receivedTotal = shown.filter((r) => r.status === "confirmed").reduce((s, r) => s + (r.paymentAmount || 0), 0);
+  const pendingCount = shown.filter((r) => r.status !== "confirmed").length;
+
   const confirm = async (r) => {
     setBusyId(r.id);
     try {
@@ -4074,6 +4099,10 @@ function AdminRegistrations({ registrations, onSetStatus, onDelete }) {
 
   return (
     <div>
+      <div className="flex flex-wrap gap-3 mb-5 max-w-md">
+        <StatTile label="Payment received" value={`₹${formatPrice(receivedTotal)}`} color="var(--accent-ink)" />
+        <StatTile label="Pending requests" value={pendingCount} color="var(--gold)" />
+      </div>
       <div className="flex gap-2 flex-wrap mb-5">
         <input
           placeholder="Filter by name, phone, or event"
