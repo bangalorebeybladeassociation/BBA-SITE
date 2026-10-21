@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import Lenis from "lenis";
 import QRCode from "qrcode";
 import beybladeImg from "./assets/beyblade.webp";
+import eventsBeyImg from "./assets/beyblade-purple.webp";
 import bbaLogo from "./assets/bba-logo.webp";
 import bbaLogoLight from "./assets/bba-logo-light.webp";
 import { useAuth } from "./auth/context";
@@ -105,7 +106,7 @@ function Reveal({ children, delay = 0, className = "" }) {
 /* ---------- spinning bey (signature element) ----------
    `speed` is seconds per full rotation. Alt text defaults to
    empty since most instances are decorative.                */
-function SpinningBey({ size = 240, speed = 4, className = "", alt = "" }) {
+function SpinningBey({ size = 240, speed = 4, className = "", alt = "", src = beybladeImg }) {
   return (
     <div className={className} style={{ position: "relative", width: size, height: size }}>
       {/* stadium glow — sits under the bey and does not rotate with it */}
@@ -120,7 +121,7 @@ function SpinningBey({ size = 240, speed = 4, className = "", alt = "" }) {
         }}
       />
       <img
-        src={beybladeImg}
+        src={src}
         alt={alt}
         draggable="false"
         style={{
@@ -290,19 +291,13 @@ function LeaderboardSection({ rows, eventDefs, season }) {
   const shownRest = expanded ? rest : rest.slice(0, LEADERBOARD_COLLAPSED_REST);
   const hasMore = rest.length > shownRest.length;
   const maxPoints = ranked[0]?.points || 1;
-  const lastEvent = eventDefs[eventDefs.length - 1];
 
   return (
     <div className="relative px-4 py-8 sm:px-8 sm:py-10 rounded-[32px] overflow-hidden">
       <GlassBackdrop />
       <div className="relative" style={{ zIndex: 1 }}>
         <Reveal>
-          <h2 className="disp font-bold text-3xl text-center mb-2">Season {season} Leaderboard</h2>
-          <p className="text-center mb-10" style={{ color: "var(--text-dim)" }}>
-            {eventDefs.length > 0
-              ? `Cumulative points across ${eventDefs.length} events — ranked through ${lastEvent ? lastEvent.label : "the latest event"}.`
-              : "Points from all sanctioned Bangalore events, merged by ranking."}
-          </p>
+          <h2 className="disp font-bold text-3xl text-center mb-8">Season {season} Leaderboard</h2>
         </Reveal>
 
         {topThree.length > 0 && (
@@ -901,6 +896,7 @@ export default function App() {
   const [page, setPage] = useState(readPage);
 
   const events = useEvents();
+  const liveEvent = events.find((e) => e.date === todayDateString());
   const { rows: sheetRows, eventDefs: leaderboardEventDefs, status: sheetStatus, lastSynced: sheetSynced, refresh: refreshSheet } = useLiveLeaderboard();
   const season = useSeason();
   const registrationSettings = useRegistrationSettings();
@@ -1493,7 +1489,7 @@ export default function App() {
       ) : (
       <>
       {/* HERO */}
-      <header className="relative overflow-hidden px-5 md:px-10 pt-24 pb-24 flex flex-col md:flex-row items-center gap-10 max-w-6xl mx-auto">
+      <header className="relative overflow-hidden px-5 md:px-10 pt-24 pb-6 flex flex-col md:flex-row items-center gap-10 max-w-6xl mx-auto">
         <div className="flex-1">
           <div
             className="inline-block px-3 py-1 rounded-full text-xs font-semibold mb-5"
@@ -1505,29 +1501,19 @@ export default function App() {
             WHERE BANGALORE'S<br />
             <span style={{ color: "var(--accent2-ink)" }}>BLADERS</span> COLLIDE.
           </h1>
-          <p className="mt-5 max-w-md" style={{ color: "var(--text-dim)" }}>
-            Tournament schedules, live brackets, match footage and a
-            marketplace built for the city's Beyblade X community — organized
-            by bladers, judged to WBO standard.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-4">
-            <a
-              href={events[0]?.bracketUrl || "https://challonge.com/"}
-              target="_blank"
-              rel="noreferrer"
-              className="tap px-6 py-3 rounded-full font-semibold text-sm"
-              style={{ background: "var(--accent2)", color: "#0A0D18" }}
-            >
-              View Live Bracket ↗
-            </a>
-            <button
-              onClick={() => goPage("market")}
-              className="tap px-6 py-3 rounded-full font-semibold text-sm border"
-              style={{ borderColor: "var(--border-strong)", color: "var(--text)" }}
-            >
-              Browse Marketplace
-            </button>
-          </div>
+          {liveEvent && (
+            <div className="mt-8 flex flex-wrap gap-4">
+              <a
+                href={liveEvent.bracketUrl || "https://challonge.com/"}
+                target="_blank"
+                rel="noreferrer"
+                className="tap px-6 py-3 rounded-full font-semibold text-sm"
+                style={{ background: "var(--accent2)", color: "#0A0D18" }}
+              >
+                View Live Bracket ↗
+              </a>
+            </div>
+          )}
         </div>
         <div className="flex-1 flex justify-center">
           <div ref={heroTiltRef} style={{ transition: `transform 400ms ${EASE}` }}>
@@ -1537,11 +1523,9 @@ export default function App() {
       </header>
 
       {/* EVENTS */}
-      <section id="events" className="max-w-6xl mx-auto px-5 md:px-10 py-8">
+      <section id="events" className="max-w-6xl mx-auto px-5 md:px-10 pt-2 pb-8">
         <Reveal>
-          <h2 className="disp font-bold text-3xl mb-2">Tournament Events</h2>
-          <p style={{ color: "var(--text-dim)" }} className="mb-2">Every event, past and upcoming — tap a bracket to open it live on Challonge.</p>
-          <p className="text-xs mb-10" style={{ color: "var(--text-faint)" }}>New to brackets? Challonge is a free third-party tool that runs the live match tree — you don't need an account to view it, only to compete.</p>
+          <h2 className="disp font-bold text-3xl mb-8">Tournament Events</h2>
         </Reveal>
         {events.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--text-faint)" }}>No events posted yet — check back soon.</p>
@@ -2010,14 +1994,14 @@ export default function App() {
   );
 }
 
-const NAV_LINKS = [
+// Mixes in-page anchors (href, scrolls the home page) and full page routes
+// (page, via goPage) — order here is exactly the hamburger menu's order.
+const NAV_ITEMS = [
   { href: "#events", icon: "events", label: "Events" },
-  { href: "#leaderboard", icon: "leaderboard", label: "Leaderboard" },
-  { href: "#media", icon: "media", label: "Media" },
-];
-const NAV_PAGES = [
   { page: "market", icon: "shop", label: "Marketplace" },
+  { href: "#leaderboard", icon: "leaderboard", label: "Leaderboard" },
   { page: "rulebook", icon: "rulebook", label: "Rulebook" },
+  { href: "#media", icon: "media", label: "Media" },
 ];
 
 /* ---------- nav menu ----------
@@ -2062,30 +2046,32 @@ function NavMenu() {
             animation: "pop-in 180ms cubic-bezier(0.32,0.72,0,1)",
           }}
         >
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              onClick={() => setOpen(false)}
-              className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
-              style={{ color: "var(--text)", borderBottom: "1px solid var(--border)" }}
-            >
-              <Icon name={link.icon} /> {link.label}
-            </a>
-          ))}
-          {NAV_PAGES.map((link, i) => (
-            <button
-              key={link.page}
-              onClick={() => {
-                setOpen(false);
-                goPage(link.page);
-              }}
-              className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
-              style={{ color: "var(--text)", borderBottom: i < NAV_PAGES.length - 1 ? "1px solid var(--border)" : "none" }}
-            >
-              <Icon name={link.icon} /> {link.label}
-            </button>
-          ))}
+          {NAV_ITEMS.map((link, i) => {
+            const borderBottom = i < NAV_ITEMS.length - 1 ? "1px solid var(--border)" : "none";
+            return link.href ? (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
+                style={{ color: "var(--text)", borderBottom }}
+              >
+                <Icon name={link.icon} /> {link.label}
+              </a>
+            ) : (
+              <button
+                key={link.page}
+                onClick={() => {
+                  setOpen(false);
+                  goPage(link.page);
+                }}
+                className="tap w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5"
+                style={{ color: "var(--text)", borderBottom }}
+              >
+                <Icon name={link.icon} /> {link.label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -3540,6 +3526,14 @@ function formatEventDate(dateStr) {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
+// Local calendar date as YYYY-MM-DD, matching how events store their own
+// date (a native <input type="date"> value) — used to tell whether an
+// event is actually happening today, not just the nearest upcoming one.
+function todayDateString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function AdminRoles({ fireToast, users }) {
   const { user: currentUser } = useAuth();
   const [filter, setFilter] = useState("");
@@ -3960,7 +3954,7 @@ function EventsTimeline({ events, onRegister }) {
                 className="rounded-xl shrink-0 flex items-center justify-center"
                 style={{ width: 64, height: 64, background: "var(--border)" }}
               >
-                <SpinningBey size={40} speed={i % 2 ? 2.2 : 3} />
+                <SpinningBey size={40} speed={i % 2 ? 2.2 : 3} src={eventsBeyImg} />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
