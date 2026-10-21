@@ -876,7 +876,11 @@ export default function App() {
   const [ordersOpen, setOrdersOpen] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState(null);
   const [shippingOpen, setShippingOpen] = useState(false);
-  const [shipForm, setShipForm] = useState({ name: "", phone: "", address: "", city: "", pincode: "" });
+  // "profile" sources name/address straight from the Profile page's own
+  // fields (see ProfilePage) so the two never drift apart; "custom" is a
+  // one-off address for just this order, typed fresh each time.
+  const [addressMode, setAddressMode] = useState("profile");
+  const [shipForm, setShipForm] = useState({ name: "", phone: "", address: "" });
   const [registerEvent, setRegisterEvent] = useState(null);
 
   const { user, loading: authLoading, isAdmin, isSeller, blockedNotice, clearBlockedNotice } = useAuth();
@@ -897,9 +901,16 @@ export default function App() {
     .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
     .slice(0, INSTAGRAM_GALLERY_LIMIT);
   const myProfile = useMyProfile(user?.uid);
+  const hasProfileAddress = Boolean(myProfile?.address && (myProfile?.firstName || myProfile?.lastName));
   useEffect(() => {
-    if (myProfile?.shipping) setShipForm((f) => ({ ...f, ...myProfile.shipping }));
-    else if (user?.name) setShipForm((f) => (f.name ? f : { ...f, name: user.name }));
+    if (!myProfile) return;
+    const hasAddress = Boolean(myProfile.address && (myProfile.firstName || myProfile.lastName));
+    setAddressMode(hasAddress ? "profile" : "custom");
+    setShipForm((f) => ({
+      name: f.name || [myProfile.firstName, myProfile.lastName].filter(Boolean).join(" ") || user?.name || "",
+      phone: myProfile.shipping?.phone || f.phone,
+      address: f.address || myProfile.address || "",
+    }));
   }, [myProfile, user]);
 
   const [approvedProducts, productsLoaded] = useApprovedProducts();
@@ -1030,12 +1041,14 @@ export default function App() {
 
   const submitShipping = async (e) => {
     e.preventDefault();
-    if (!shipForm.name || !shipForm.phone || !shipForm.address || !shipForm.city || !shipForm.pincode) {
+    if (!shipForm.name || !shipForm.phone || !shipForm.address) {
       fireToast("Please fill in all shipping details");
       return;
     }
     try {
-      await setUserShippingInfo(user.uid, shipForm);
+      // Only the phone is worth remembering here — name/address already
+      // live on the profile (or were typed fresh as a one-off for this order).
+      await setUserShippingInfo(user.uid, { phone: shipForm.phone });
       const orders = await createOrdersForCart(cart, user, shipForm);
       setCart([]);
       setShippingOpen(false);
@@ -1705,13 +1718,71 @@ export default function App() {
               So the seller knows where to send your order.
             </p>
             <form onSubmit={submitShipping} className="space-y-3">
-              <IconField icon="user" label="Full name *" required value={shipForm.name} onChange={(e) => setShipForm({ ...shipForm, name: e.target.value })} />
+              {hasProfileAddress && (
+                <div className="flex gap-2 mb-1">
+                  <button
+                    type="button"
+                    onClick={() => setAddressMode("profile")}
+                    className="tap flex-1 py-2 rounded-full text-xs font-semibold"
+                    style={{
+                      background: addressMode === "profile" ? "var(--accent)" : "transparent",
+                      color: addressMode === "profile" ? "#0A0D18" : "var(--text-dim)",
+                      border: addressMode === "profile" ? "none" : "1px solid var(--border-strong)",
+                    }}
+                  >
+                    Use profile address
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddressMode("custom")}
+                    className="tap flex-1 py-2 rounded-full text-xs font-semibold"
+                    style={{
+                      background: addressMode === "custom" ? "var(--accent)" : "transparent",
+                      color: addressMode === "custom" ? "#0A0D18" : "var(--text-dim)",
+                      border: addressMode === "custom" ? "none" : "1px solid var(--border-strong)",
+                    }}
+                  >
+                    Use a different address
+                  </button>
+                </div>
+              )}
+
+              {addressMode === "profile" && hasProfileAddress ? (
+                <div className="p-3.5 rounded-lg text-sm" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
+                  <div className="font-medium">{[myProfile.firstName, myProfile.lastName].filter(Boolean).join(" ")}</div>
+                  <div style={{ color: "var(--text-dim)" }}>{myProfile.address}</div>
+                  <button
+                    type="button"
+                    onClick={() => { setShippingOpen(false); goPage("profile"); }}
+                    className="tap text-xs mt-2"
+                    style={{ color: "var(--accent-ink)" }}
+                  >
+                    Edit in Profile
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <IconField icon="user" label="Full name *" required value={shipForm.name} onChange={(e) => setShipForm({ ...shipForm, name: e.target.value })} />
+                  <IconField icon="pin" label="Address *" required value={shipForm.address} onChange={(e) => setShipForm({ ...shipForm, address: e.target.value })} />
+                  {!hasProfileAddress && (
+                    <p className="text-xs" style={{ color: "var(--text-faint)" }}>
+                      Tip: save this to your{" "}
+                      <button
+                        type="button"
+                        onClick={() => { setShippingOpen(false); goPage("profile"); }}
+                        className="tap font-semibold"
+                        style={{ color: "var(--accent-ink)" }}
+                      >
+                        Profile
+                      </button>{" "}
+                      to reuse it next time.
+                    </p>
+                  )}
+                </>
+              )}
+
               <IconField icon="phone" label="Phone number *" type="tel" required value={shipForm.phone} onChange={(e) => setShipForm({ ...shipForm, phone: e.target.value })} />
-              <IconField icon="pin" label="Address *" required value={shipForm.address} onChange={(e) => setShipForm({ ...shipForm, address: e.target.value })} />
-              <div className="grid grid-cols-2 gap-3">
-                <IconField icon="pin" label="City *" required value={shipForm.city} onChange={(e) => setShipForm({ ...shipForm, city: e.target.value })} />
-                <IconField icon="pin" label="Pincode *" required value={shipForm.pincode} onChange={(e) => setShipForm({ ...shipForm, pincode: e.target.value })} />
-              </div>
+
               <button
                 type="submit"
                 className="tap w-full py-2.5 rounded-full text-sm font-semibold mt-2"
@@ -1737,17 +1808,23 @@ export default function App() {
             <div className="space-y-3 mb-5">
               {checkoutResult.map((o) => (
                 <div key={o.id} className="p-4 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border-strong)" }}>
-                  <div className="flex justify-between text-sm mb-2">
+                  <div className="flex justify-between text-sm mb-1">
                     <span className="font-semibold">{o.sellerName}</span>
                     <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(o.total)}</span>
                   </div>
-                  {o.sellerUpiId ? (
-                    <p className="text-xs" style={{ color: "var(--accent-ink)" }}>UPI: {o.sellerUpiId}</p>
-                  ) : (
-                    <p className="text-xs" style={{ color: "var(--text-faint)" }}>No UPI on file —</p>
-                  )}
+                  <p className="text-xs mb-2" style={{ color: "var(--text-faint)" }}>Order {shortOrderId(o.id)}</p>
                   {o.sellerPaymentContact && (
-                    <p className="text-xs" style={{ color: "var(--text-dim)" }}>Contact: {o.sellerPaymentContact}</p>
+                    <p className="text-xs mb-2" style={{ color: "var(--text-dim)" }}>Contact: {o.sellerPaymentContact}</p>
+                  )}
+                  {o.sellerUpiId ? (
+                    <UpiPayButton
+                      upiId={o.sellerUpiId}
+                      payeeName={o.sellerName}
+                      amount={o.total}
+                      note={`BBA order ${shortOrderId(o.id)}`}
+                    />
+                  ) : (
+                    <p className="text-xs" style={{ color: "var(--text-faint)" }}>Seller hasn't added a UPI ID yet — contact them directly.</p>
                   )}
                 </div>
               ))}
@@ -1797,14 +1874,24 @@ export default function App() {
                   <span className="font-semibold">{o.sellerName}</span>
                   <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{formatPrice(o.total)}</span>
                 </div>
+                <p className="text-xs" style={{ color: "var(--text-faint)" }}>Order {shortOrderId(o.id)}</p>
                 <OrderStatusBadge status={o.status} />
                 {o.shipping && (
                   <p className="text-xs mt-2" style={{ color: "var(--text-faint)" }}>
-                    Shipping to {o.shipping.address}, {o.shipping.city} {o.shipping.pincode}
+                    Shipping to {o.shipping.address}
+                    {o.shipping.city ? `, ${o.shipping.city}` : ""}
+                    {o.shipping.pincode ? ` ${o.shipping.pincode}` : ""}
                   </p>
                 )}
                 {o.status === "pending_payment" && o.sellerUpiId && (
-                  <p className="text-xs mt-2" style={{ color: "var(--accent-ink)" }}>Pay via UPI: {o.sellerUpiId}</p>
+                  <div className="mt-2">
+                    <UpiPayButton
+                      upiId={o.sellerUpiId}
+                      payeeName={o.sellerName}
+                      amount={o.total}
+                      note={`BBA order ${shortOrderId(o.id)}`}
+                    />
+                  </div>
                 )}
               </div>
             ))}
@@ -2043,11 +2130,13 @@ const REGISTRATION_VISITOR_FEE = 150;
 
 // Standard NPCI "upi://pay" deep link — any UPI app installed on the
 // device (GPay, PhonePe, Paytm, etc.) registers this scheme, so the OS
-// shows its own app-picker rather than us needing per-app URIs.
-function buildUpiLink(amount, note) {
+// shows its own app-picker rather than us needing per-app URIs. Generic
+// over the payee so both BBA's own registration fee and an individual
+// seller's marketplace sale can use the same button.
+function buildUpiLink(upiId, payeeName, amount, note) {
   const params = new URLSearchParams({
-    pa: REGISTRATION_UPI_ID,
-    pn: "Bangalore Beyblade Association",
+    pa: upiId,
+    pn: payeeName,
     am: String(amount),
     cu: "INR",
   });
@@ -2055,16 +2144,23 @@ function buildUpiLink(amount, note) {
   return `upi://pay?${params.toString()}`;
 }
 
-function UpiPayButton({ amount, note }) {
+function UpiPayButton({ upiId, payeeName, amount, note }) {
   return (
     <a
-      href={buildUpiLink(amount, note)}
+      href={buildUpiLink(upiId, payeeName, amount, note)}
       className="tap w-full py-2.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
       style={{ background: "var(--accent2)", color: "#0A0D18" }}
     >
       <Icon name="wallet" size={15} /> Pay ₹{formatPrice(amount)} with GPay / PhonePe / UPI
     </a>
   );
+}
+
+// Firestore doc ids are 20 opaque chars — not something a buyer and
+// seller can read out to each other to match up a payment, so every UPI
+// note and sales-log line uses this short, human-sayable reference instead.
+function shortOrderId(id) {
+  return id ? id.slice(-6).toUpperCase() : "";
 }
 
 // Silently submits to a hidden Google Form on every registration, whose
@@ -2218,7 +2314,14 @@ function RegistrationPage({ event, user, onClose, fireToast }) {
               <span className="text-sm font-semibold" style={{ color: "var(--accent-ink)" }}>{REGISTRATION_UPI_ID}</span>
               <CopyUpiButton copied={copied} onCopy={copyUpi} />
             </div>
-            {totalDue > 0 && <UpiPayButton amount={totalDue} note={`${event.name} registration`} />}
+            {totalDue > 0 && (
+              <UpiPayButton
+                upiId={REGISTRATION_UPI_ID}
+                payeeName="Bangalore Beyblade Association"
+                amount={totalDue}
+                note={`${event.name} registration`}
+              />
+            )}
           </div>
           <button onClick={onClose} className="tap w-full py-2.5 rounded-full text-sm font-semibold" style={{ background: "var(--accent)", color: "#0A0D18" }}>
             Back to site
@@ -2923,16 +3026,25 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
             <div key={o.id} className="p-4 rounded-xl flex items-center justify-between flex-wrap gap-2" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
               <div>
                 <div className="text-sm font-medium">{o.buyerName}</div>
-                <div className="text-xs" style={{ color: "var(--text-faint)" }}>{o.items.length} item(s) · ₹{formatPrice(o.total)}</div>
+                <div className="text-xs" style={{ color: "var(--text-faint)" }}>
+                  Order {shortOrderId(o.id)} · {o.items.length} item(s) · ₹{formatPrice(o.total)}
+                </div>
                 {o.shipping ? (
                   <div className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>
                     Ship to: {o.shipping.name} · {o.shipping.phone}<br />
-                    {o.shipping.address}, {o.shipping.city} {o.shipping.pincode}
+                    {o.shipping.address}
+                    {o.shipping.city ? `, ${o.shipping.city}` : ""}
+                    {o.shipping.pincode ? ` ${o.shipping.pincode}` : ""}
                   </div>
                 ) : (
                   <div className="text-xs mt-1" style={{ color: "var(--text-faint)" }}>No shipping details on file — ask the buyer</div>
                 )}
                 <OrderStatusBadge status={o.status} />
+                {o.status === "paid" && o.paidAt && (
+                  <div className="text-xs mt-1" style={{ color: "var(--text-faint)" }}>
+                    Confirmed paid {formatLastLogin(o.paidAt)}
+                  </div>
+                )}
               </div>
               {o.status === "pending_payment" && (
                 <button
@@ -2940,7 +3052,7 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
                   className="tap px-3 py-1.5 rounded-full text-xs font-semibold"
                   style={{ background: "var(--accent)", color: "#0A0D18" }}
                 >
-                  Mark as paid
+                  Confirm payment received
                 </button>
               )}
             </div>
