@@ -33,6 +33,7 @@ import {
   setUserBlocked,
   deleteUserProfile,
   setUserPaymentInfo,
+  setUserShippingInfo,
   listenAllUsers,
   createOrdersForCart,
   listenMyOrders,
@@ -869,6 +870,8 @@ export default function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState(null);
+  const [shippingOpen, setShippingOpen] = useState(false);
+  const [shipForm, setShipForm] = useState({ name: "", phone: "", address: "", city: "", pincode: "" });
   const [registerEvent, setRegisterEvent] = useState(null);
 
   const { user, loading: authLoading, isAdmin, isSeller, blockedNotice, clearBlockedNotice } = useAuth();
@@ -889,6 +892,10 @@ export default function App() {
     .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
     .slice(0, INSTAGRAM_GALLERY_LIMIT);
   const myProfile = useMyProfile(user?.uid);
+  useEffect(() => {
+    if (myProfile?.shipping) setShipForm((f) => ({ ...f, ...myProfile.shipping }));
+    else if (user?.name) setShipForm((f) => (f.name ? f : { ...f, name: user.name }));
+  }, [myProfile, user]);
 
   const [approvedProducts, productsLoaded] = useApprovedProducts();
   const sellerProducts = useSellerProducts(isSeller ? user?.uid : null);
@@ -1004,19 +1011,30 @@ export default function App() {
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
-  const checkout = async () => {
+  const openShipping = () => {
     if (!cart.length) return;
     if (!user) {
       setCartOpen(false);
       goAuth("login", "cart");
       return;
     }
+    setCartOpen(false);
+    setShippingOpen(true);
+  };
+
+  const submitShipping = async (e) => {
+    e.preventDefault();
+    if (!shipForm.name || !shipForm.phone || !shipForm.address || !shipForm.city || !shipForm.pincode) {
+      fireToast("Please fill in all shipping details");
+      return;
+    }
     try {
-      const orders = await createOrdersForCart(cart, user);
+      await setUserShippingInfo(user.uid, shipForm);
+      const orders = await createOrdersForCart(cart, user, shipForm);
       setCart([]);
-      setCartOpen(false);
+      setShippingOpen(false);
       setCheckoutResult(orders);
-    } catch (e) {
+    } catch (err) {
       fireToast("Couldn't place order — please try again");
     }
   };
@@ -1637,7 +1655,7 @@ export default function App() {
               </p>
             )}
             <button
-              onClick={checkout}
+              onClick={openShipping}
               className="tap w-full py-3 rounded-full font-semibold text-sm"
               style={{ background: "var(--accent2)", color: "#0A0D18" }}
             >
@@ -1646,6 +1664,37 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* SHIPPING DETAILS — collected before the order's created so the
+          seller has somewhere to send it; saved to the buyer's profile too
+          so it prefills next time. */}
+      {shippingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
+          <div onClick={() => setShippingOpen(false)} className="absolute inset-0" style={{ background: "rgba(0,0,0,0.6)" }} />
+          <div className="relative w-full max-w-md rounded-2xl p-6 max-h-[85vh] overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)" }} data-lenis-prevent>
+            <h3 className="disp font-bold text-xl mb-1">Shipping details</h3>
+            <p className="text-sm mb-5" style={{ color: "var(--text-dim)" }}>
+              So the seller knows where to send your order.
+            </p>
+            <form onSubmit={submitShipping} className="space-y-3">
+              <IconField icon="user" label="Full name *" required value={shipForm.name} onChange={(e) => setShipForm({ ...shipForm, name: e.target.value })} />
+              <IconField icon="phone" label="Phone number *" type="tel" required value={shipForm.phone} onChange={(e) => setShipForm({ ...shipForm, phone: e.target.value })} />
+              <IconField icon="pin" label="Address *" required value={shipForm.address} onChange={(e) => setShipForm({ ...shipForm, address: e.target.value })} />
+              <div className="grid grid-cols-2 gap-3">
+                <IconField icon="pin" label="City *" required value={shipForm.city} onChange={(e) => setShipForm({ ...shipForm, city: e.target.value })} />
+                <IconField icon="pin" label="Pincode *" required value={shipForm.pincode} onChange={(e) => setShipForm({ ...shipForm, pincode: e.target.value })} />
+              </div>
+              <button
+                type="submit"
+                className="tap w-full py-2.5 rounded-full text-sm font-semibold mt-2"
+                style={{ background: "var(--accent2)", color: "#0A0D18" }}
+              >
+                Place order
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* CHECKOUT CONFIRMATION — payment is a manual/UPI handoff, so this is
           where the buyer actually finds out how to pay each seller. */}
@@ -1721,6 +1770,11 @@ export default function App() {
                   <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{o.total}</span>
                 </div>
                 <OrderStatusBadge status={o.status} />
+                {o.shipping && (
+                  <p className="text-xs mt-2" style={{ color: "var(--text-faint)" }}>
+                    Shipping to {o.shipping.address}, {o.shipping.city} {o.shipping.pincode}
+                  </p>
+                )}
                 {o.status === "pending_payment" && o.sellerUpiId && (
                   <p className="text-xs mt-2" style={{ color: "var(--accent-ink)" }}>Pay via UPI: {o.sellerUpiId}</p>
                 )}
@@ -2704,6 +2758,14 @@ function SellerPanel({ seller, profile, products, orders, catalogue, onCreate, o
               <div>
                 <div className="text-sm font-medium">{o.buyerName}</div>
                 <div className="text-xs" style={{ color: "var(--text-faint)" }}>{o.items.length} item(s) · ₹{o.total}</div>
+                {o.shipping ? (
+                  <div className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>
+                    Ship to: {o.shipping.name} · {o.shipping.phone}<br />
+                    {o.shipping.address}, {o.shipping.city} {o.shipping.pincode}
+                  </div>
+                ) : (
+                  <div className="text-xs mt-1" style={{ color: "var(--text-faint)" }}>No shipping details on file — ask the buyer</div>
+                )}
                 <OrderStatusBadge status={o.status} />
               </div>
               {o.status === "pending_payment" && (

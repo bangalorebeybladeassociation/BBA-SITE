@@ -90,6 +90,13 @@ export async function setUserPaymentInfo(uid, { upiId, paymentContact }) {
   await updateDoc(doc(db, "users", uid), { upiId, paymentContact, updatedAt: serverTimestamp() });
 }
 
+// Saved so repeat checkouts can prefill it — see createOrdersForCart, which
+// snapshots it onto each order at purchase time (an edit here shouldn't
+// change the shipping address on an order already placed).
+export async function setUserShippingInfo(uid, shipping) {
+  await updateDoc(doc(db, "users", uid), { shipping, updatedAt: serverTimestamp() });
+}
+
 // admin-only: same "unfiltered list needs isAdmin()" rule as products/orders.
 export function listenAllUsers(cb) {
   return onSnapshot(
@@ -234,7 +241,7 @@ export const deleteProduct = (id) => deleteDoc(doc(db, "products", id));
 // ---------------- orders ----------------
 // One order per seller per checkout — payment is a manual per-seller
 // handoff, so the buyer needs each seller's payment info separately.
-export async function createOrdersForCart(cart, buyer) {
+export async function createOrdersForCart(cart, buyer, shipping) {
   const bySeller = new Map();
   for (const item of cart) {
     const key = item.sellerId;
@@ -257,6 +264,7 @@ export async function createOrdersForCart(cart, buyer) {
       buyerId: buyer.uid,
       buyerName: buyer.name,
       buyerEmail: buyer.email,
+      shipping,
       sellerId: group.sellerId,
       sellerName: group.sellerName,
       sellerIds: [group.sellerId],
