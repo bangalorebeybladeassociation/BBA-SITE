@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Lenis from "lenis";
 import beybladeImg from "./assets/beyblade.webp";
 import bbaLogo from "./assets/bba-logo.webp";
@@ -1205,6 +1205,21 @@ export default function App() {
         .field-input { transition: border-color 200ms ${EASE}, box-shadow 200ms ${EASE}, transform 150ms ${EASE}; }
         .field-input:focus { outline: none; border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(0,230,195,0.16); }
         .field-input:focus-within { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(0,230,195,0.16); }
+        .price-range { position: relative; height: 20px; }
+        .price-range input[type="range"] {
+          position: absolute; top: 0; left: 0; width: 100%; height: 20px; margin: 0;
+          -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none;
+        }
+        .price-range input[type="range"]::-webkit-slider-runnable-track { -webkit-appearance: none; height: 4px; background: transparent; }
+        .price-range input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none; pointer-events: auto; width: 16px; height: 16px; border-radius: 50%;
+          background: var(--accent); border: 2px solid var(--bg); box-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: pointer; margin-top: -6px;
+        }
+        .price-range input[type="range"]::-moz-range-track { height: 4px; background: transparent; }
+        .price-range input[type="range"]::-moz-range-thumb {
+          pointer-events: auto; width: 16px; height: 16px; border-radius: 50%;
+          background: var(--accent); border: 2px solid var(--bg); box-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: pointer;
+        }
         .swatch { transition: transform 180ms ${EASE}, box-shadow 180ms ${EASE}; }
         .swatch:hover { transform: scale(1.15); }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; opacity: 0.7; }
@@ -2369,24 +2384,80 @@ function ConfirmModal({ title, message, confirmLabel = "Delete", busy, onConfirm
   );
 }
 
+/* ---------- dual-handle price filter — two overlaid <input type=range>,
+   each pointer-events:none except its own thumb (see the .price-range
+   rules in the global <style> block), so both handles stay independently
+   draggable without any manual hit-testing. ---------- */
+function PriceRangeSlider({ bounds, value, onChange }) {
+  const [boundMin, boundMax] = bounds;
+  const [lo, hi] = value;
+  const span = boundMax - boundMin || 1;
+  const pct = (v) => ((v - boundMin) / span) * 100;
+
+  return (
+    <div>
+      <div className="text-xs mb-1.5 flex items-center justify-between gap-3" style={{ color: "var(--text-faint)" }}>
+        <span>Price</span>
+        <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{lo} – ₹{hi}</span>
+      </div>
+      <div className="price-range" style={{ width: 180 }}>
+        <div className="absolute rounded-full" style={{ top: 8, left: 0, right: 0, height: 4, background: "var(--border-strong)" }} />
+        <div
+          className="absolute rounded-full"
+          style={{ top: 8, height: 4, background: "var(--accent)", left: `${pct(lo)}%`, right: `${100 - pct(hi)}%` }}
+        />
+        <input
+          type="range"
+          aria-label="Minimum price"
+          min={boundMin}
+          max={boundMax}
+          value={lo}
+          onChange={(e) => onChange([Math.min(Number(e.target.value), hi), hi])}
+        />
+        <input
+          type="range"
+          aria-label="Maximum price"
+          min={boundMin}
+          max={boundMax}
+          value={hi}
+          onChange={(e) => onChange([lo, Math.max(Number(e.target.value), lo)])}
+        />
+      </div>
+    </div>
+  );
+}
+
 /* ---------- buyer ---------- */
 function BuyerPanel({ products, onAdd, loaded }) {
   const [itemType, setItemType] = useState("All");
   const [condition, setCondition] = useState("All");
   const [search, setSearch] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
+
+  // The slider's own range — snapped to what's actually for sale the first
+  // time listings show up, so it starts fully open instead of 0–0.
+  const priceBounds = useMemo(() => {
+    if (!products.length) return [0, 5000];
+    const prices = products.map((p) => p.price);
+    return [Math.min(...prices), Math.max(...prices)];
+  }, [products]);
+  const [priceRange, setPriceRange] = useState(priceBounds);
+  const boundsInit = useRef(false);
+  useEffect(() => {
+    if (!boundsInit.current && products.length) {
+      setPriceRange(priceBounds);
+      boundsInit.current = true;
+    }
+  }, [products.length, priceBounds]);
 
   const q = search.trim().toLowerCase();
-  const min = minPrice === "" ? -Infinity : Number(minPrice);
-  const max = maxPrice === "" ? Infinity : Number(maxPrice);
+  const [minPrice, maxPrice] = priceRange;
 
   const shown = products.filter(
     (p) =>
       (itemType === "All" || p.itemType === itemType) &&
       (condition === "All" || p.condition === condition) &&
       (!q || p.name?.toLowerCase().includes(q)) &&
-      p.price >= min && p.price <= max
+      p.price >= minPrice && p.price <= maxPrice
   );
 
   return (
@@ -2430,32 +2501,7 @@ function BuyerPanel({ products, onAdd, loaded }) {
             ))}
           </select>
         </div>
-        <div>
-          <div className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>Min price</div>
-          <input
-            type="number"
-            min="0"
-            inputMode="numeric"
-            value={minPrice}
-            onChange={(e) => setMinPrice(e.target.value)}
-            placeholder="₹0"
-            className="w-24 px-3 py-2 rounded-lg text-sm outline-none"
-            style={fieldStyle()}
-          />
-        </div>
-        <div>
-          <div className="text-xs mb-1.5" style={{ color: "var(--text-faint)" }}>Max price</div>
-          <input
-            type="number"
-            min="0"
-            inputMode="numeric"
-            value={maxPrice}
-            onChange={(e) => setMaxPrice(e.target.value)}
-            placeholder="Any"
-            className="w-24 px-3 py-2 rounded-lg text-sm outline-none"
-            style={fieldStyle()}
-          />
-        </div>
+        <PriceRangeSlider bounds={priceBounds} value={priceRange} onChange={setPriceRange} />
       </div>
       {!loaded ? (
         <p className="text-sm" style={{ color: "var(--text-faint)" }}>Loading listings…</p>
