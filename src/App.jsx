@@ -973,12 +973,31 @@ export default function App() {
   }, [blockedNotice, clearBlockedNotice, fireToast]);
 
   const addToCart = (p) => {
-    setCart((c) => {
-      const found = c.find((x) => x.id === p.id);
-      if (found) return c.map((x) => (x.id === p.id ? { ...x, qty: x.qty + 1 } : x));
-      return [...c, { ...p, qty: 1 }];
-    });
+    const found = cart.find((x) => x.id === p.id);
+    const max = p.stock ?? Infinity;
+    if ((found?.qty ?? 0) >= max) {
+      fireToast(`Only ${max} "${p.name}" in stock`);
+      return;
+    }
+    setCart((c) =>
+      found ? c.map((x) => (x.id === p.id ? { ...x, qty: x.qty + 1 } : x)) : [...c, { ...p, qty: 1 }]
+    );
     fireToast(`Added "${p.name}" to cart`);
+  };
+
+  const updateCartQty = (id, delta) => {
+    setCart((c) =>
+      c.map((x) => {
+        if (x.id !== id) return x;
+        const max = x.stock ?? Infinity;
+        return { ...x, qty: Math.min(max, Math.max(1, x.qty + delta)) };
+      })
+    );
+  };
+
+  const removeFromCart = (id, name) => {
+    setCart((c) => c.filter((x) => x.id !== id));
+    fireToast(`Removed "${name}" from cart`);
   };
 
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
@@ -1560,9 +1579,45 @@ export default function App() {
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{i.name}</div>
-                  <div style={{ color: "var(--text-faint)" }}>Qty {i.qty}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => updateCartQty(i.id, -1)}
+                      disabled={i.qty <= 1}
+                      aria-label={`Decrease quantity of ${i.name}`}
+                      title="Decrease quantity"
+                      className="tap flex items-center justify-center rounded-full shrink-0"
+                      style={{ width: 22, height: 22, border: "1px solid var(--border-strong)", color: "var(--text)", opacity: i.qty <= 1 ? 0.4 : 1 }}
+                    >
+                      −
+                    </button>
+                    <span style={{ color: "var(--text-faint)", minWidth: 16, textAlign: "center" }}>{i.qty}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateCartQty(i.id, 1)}
+                      disabled={i.stock != null && i.qty >= i.stock}
+                      aria-label={`Increase quantity of ${i.name}`}
+                      title="Increase quantity"
+                      className="tap flex items-center justify-center rounded-full shrink-0"
+                      style={{ width: 22, height: 22, border: "1px solid var(--border-strong)", color: "var(--text)", opacity: i.stock != null && i.qty >= i.stock ? 0.4 : 1 }}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-                <div style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{i.price * i.qty}</div>
+                <div className="flex flex-col items-end gap-1.5">
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>₹{i.price * i.qty}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFromCart(i.id, i.name)}
+                    aria-label={`Remove ${i.name} from cart`}
+                    title="Remove from cart"
+                    className="tap"
+                    style={{ color: "var(--danger)" }}
+                  >
+                    <Icon name="remove" size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -2335,10 +2390,11 @@ function BuyerPanel({ products, onAdd, loaded }) {
                 </div>
                 <button
                   onClick={() => onAdd(p)}
+                  disabled={p.stock <= 0}
                   className="tap mt-1 py-2 rounded-full text-sm font-semibold"
-                  style={{ background: "var(--accent2)", color: "#0A0D18" }}
+                  style={{ background: "var(--accent2)", color: "#0A0D18", opacity: p.stock <= 0 ? 0.5 : 1 }}
                 >
-                  Add to cart
+                  {p.stock <= 0 ? "Out of stock" : "Add to cart"}
                 </button>
               </div>
             </Reveal>
@@ -2364,7 +2420,7 @@ function CataloguePicker({ catalogue, itemType, onSelect, onClose }) {
       <div onClick={onClose} className="absolute inset-0" style={{ background: "rgba(0,0,0,0.6)" }} />
       <div
         className="relative w-full max-w-2xl rounded-2xl flex flex-col"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)", maxHeight: "85vh" }}
+        style={{ background: "var(--surface)", border: "1px solid var(--border)", maxHeight: "85vh", overflow: "hidden" }}
       >
         <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
           <h3 className="disp font-bold text-lg">Choose a product</h3>
@@ -2380,7 +2436,7 @@ function CataloguePicker({ catalogue, itemType, onSelect, onClose }) {
             style={fieldStyle()}
           />
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-5 py-4" style={{ minHeight: 0 }}>
           {!catalogue ? (
             <p className="text-sm" style={{ color: "var(--text-faint)" }}>Loading catalogue…</p>
           ) : shown.length === 0 ? (
