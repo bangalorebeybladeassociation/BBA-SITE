@@ -1,7 +1,7 @@
 {
   "source": "https://beyblade.phstudy.org/",
-  "syncedAt": "2026-10-21T06:47:09.467Z",
-  "hash": "f875737609db4f79",
+  "syncedAt": "2026-10-22T00:40:33.664Z",
+  "hash": "36e028ed2210d199",
   "items": [
     {
       "id": "SR-PRD-056102-00",
@@ -556,9 +556,9 @@
       "itemType": "Beyblade"
     },
     {
-      "id": "BXG00",
+      "id": "SR-PRD-946816-01",
       "name": "BX-00 Beyblade 25th Anniversary Set",
-      "image": "catalogue-images/BXG00@2.webp",
+      "image": "catalogue-images/946816_00.webp",
       "itemType": "Beyblade"
     },
     {
