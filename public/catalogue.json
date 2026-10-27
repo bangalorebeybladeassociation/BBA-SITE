@@ -1,7 +1,7 @@
 {
   "source": "https://beyblade.phstudy.org/",
-  "syncedAt": "2026-10-22T00:40:33.664Z",
-  "hash": "36e028ed2210d199",
+  "syncedAt": "2026-10-27T01:32:39.895Z",
+  "hash": "c6c2ce7f7b7e240e",
   "items": [
     {
       "id": "SR-PRD-056102-00",
@@ -40,6 +40,12 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "BX56",
+      "name": "BX-56 String Launcher L White × Violet",
+      "image": "catalogue-images/058915_02.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "SR-PRD-073734-01",
       "name": "BX-53 All-in-One Set",
       "image": "catalogue-images/073734_00.webp",
@@ -70,6 +76,12 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "BXH27",
+      "name": "BX-00 Plus One Bit Campaign U/W/GB",
+      "image": "catalogue-images/080541_01.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "SR-PRD-065159-00",
       "name": "UX-00 Glory Valkerion LF Metallic Coat: Blue",
       "image": "catalogue-images/065159_00.webp",
@@ -79,6 +91,12 @@
       "id": "SR-PRD-085683-01",
       "name": "CX-00 Evangelion Deck Set",
       "image": "catalogue-images/085683_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX57",
+      "name": "BX-57 3on3 Deck Case Black Ver.",
+      "image": "catalogue-images/059905_00.webp",
       "itemType": "Beyblade"
     },
     {
@@ -142,6 +160,12 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "BX51",
+      "name": "BX-51 String Launcher Black × Green",
+      "image": "catalogue-images/089261_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "SR-PRD-096177-01",
       "name": "CX-18 Random Booster Whip Brachio Select",
       "image": "catalogue-images/096177_00.webp",
@@ -199,6 +223,12 @@
       "id": "SR-PRD-072447-00",
       "name": "CX-00 Blitz Bahamut BK 1-50I Metallic Coat: Yellow",
       "image": "catalogue-images/072447_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BXG62",
+      "name": "BX-00 String Launcher B4 Store Limited Color Ver.",
+      "image": "catalogue-images/202431_00.webp",
       "itemType": "Beyblade"
     },
     {
@@ -280,6 +310,12 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "BXC18",
+      "name": "BX-00 Sword Dran Metallic Coat: Red",
+      "image": "catalogue-images/0381002126.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "SR-PRD-096092-01",
       "name": "BX-48 Random Booster Vol.9",
       "image": "catalogue-images/096092_00.webp",
@@ -295,6 +331,12 @@
       "id": "SR-PRD-085706-00",
       "name": "BX-00 Keel Shark 2-60GP Metallic Coat: Black",
       "image": "catalogue-images/085706_01.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BXH21",
+      "name": "BX-00 Plus One Bit Campaign V/O/D",
+      "image": "catalogue-images/092858_01.webp",
       "itemType": "Beyblade"
     },
     {
@@ -316,6 +358,18 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "BX00-EMB",
+      "name": "BX-00 Beyblade X Emblem Sticker 01",
+      "image": "catalogue-images/BX00_emb_sticker01@2.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BXG50",
+      "name": "BX-00 Bit Set F/T/B/N Silver×White",
+      "image": "catalogue-images/089193_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "SR-PRD-997023-00",
       "name": "UX-00 Coil Orochi 6-60LF",
       "image": "catalogue-images/997023_00.webp",
@@ -325,6 +379,12 @@
       "id": "SR-PRD-994350-00",
       "name": "CX-00 Fang Leon T 4-60A Red Ver.",
       "image": "catalogue-images/994350_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BXH20",
+      "name": "BX-00 Plus One Bit Campaign P",
+      "image": "catalogue-images/092698_01.webp",
       "itemType": "Beyblade"
     },
     {
@@ -349,6 +409,12 @@
       "id": "SR-PRD-993636-00",
       "name": "UX-00 Hover Wyvern 2-80GN DMM Kuji Prize A",
       "image": "catalogue-images/993636_01.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX47",
+      "name": "BX-47 String Launcher L Red Ver.",
+      "image": "catalogue-images/097396_00.webp",
       "itemType": "Beyblade"
     },
     {
@@ -424,6 +490,12 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "BXC14",
+      "name": "CX-00 Assist Blade/J",
+      "image": "catalogue-images/993889_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "SR-PRD-939528-00",
       "name": "BX-44 Brace Triceratops M-85BS",
       "image": "catalogue-images/939528_00.webp",
@@ -439,6 +511,12 @@
       "id": "SR-PRD-956969-01",
       "name": "CX-06 Brush Fox Select",
       "image": "catalogue-images/956969_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BXH17",
+      "name": "CX-00 Lock Chip / Dran Clear Black Ver.",
+      "image": "catalogue-images/953715_00.webp",
       "itemType": "Beyblade"
     },
     {
@@ -520,6 +598,30 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "BX40",
+      "name": "BX-40 Winder Launcher L",
+      "image": "catalogue-images/958765_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX41",
+      "name": "BX-41 Rubber Custom Grip Gunmetal Ver.",
+      "image": "catalogue-images/958482_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX42",
+      "name": "BX-42 Rubber Custom Grip Blue Ver.",
+      "image": "catalogue-images/958536_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX43",
+      "name": "BX-43 Gear Case White Ver.",
+      "image": "catalogue-images/958796_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "SR-EVE-958772-00",
       "name": "CX-00 Dark Perseus B 6-80W Metallic Coat: Gold B4 Store G3 Tournament Prize",
       "image": "catalogue-images/958772_01.webp",
@@ -556,9 +658,21 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "BXG17",
+      "name": "BX-00 Bit Set F/T/B/N Gold×Black",
+      "image": "catalogue-images/949862_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "SR-PRD-946816-01",
       "name": "BX-00 Beyblade 25th Anniversary Set",
       "image": "catalogue-images/946816_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BXC08",
+      "name": "BX-00 Feather Phoenix Metallic Coat: Orange",
+      "image": "catalogue-images/01.webp",
       "itemType": "Beyblade"
     },
     {
@@ -724,9 +838,33 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "BX00-ST01",
+      "name": "BX-00 Beyblade X Sticker 01",
+      "image": "catalogue-images/BXG_st01@2.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX00-ST02",
+      "name": "BX-00 Beyblade X Sticker 02",
+      "image": "catalogue-images/BXG_st02@2.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX00-ST03",
+      "name": "BX-00 Beyblade X Sticker 03",
+      "image": "catalogue-images/BXG_st03@2.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "SR-PRD-941569-00",
       "name": "UX-00 Aero Pegasus 3-70A Metallic Coat: Blue/Green",
       "image": "catalogue-images/941569_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX32",
+      "name": "BX-32 Wide Extreme Stadium",
+      "image": "catalogue-images/926719_00.webp",
       "itemType": "Beyblade"
     },
     {
@@ -745,6 +883,18 @@
       "id": "SR-PRD-914556-00",
       "name": "BX-33 Pearl Tiger 3-60U",
       "image": "catalogue-images/914556_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BXC04",
+      "name": "BX-00 Sword Dran Metallic Coat: Blue",
+      "image": "catalogue-images/01.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX00-CG",
+      "name": "BX-00 Custom Grip Clear Black Ver.",
+      "image": "catalogue-images/box.webp",
       "itemType": "Beyblade"
     },
     {
@@ -793,6 +943,24 @@
       "id": "SR-PRD-914501-01",
       "name": "UX-04 Battle Entry Set U",
       "image": "catalogue-images/914501_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX28",
+      "name": "BX-28 String Launcher White Ver.",
+      "image": "catalogue-images/914518_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX29",
+      "name": "BX-29 Custom Grip White Ver.",
+      "image": "catalogue-images/914525_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX30",
+      "name": "BX-30 Custom Grip Red Ver.",
+      "image": "catalogue-images/926702_00.webp",
       "itemType": "Beyblade"
     },
     {
@@ -850,6 +1018,12 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "BX25",
+      "name": "BX-25 Gear Case",
+      "image": "catalogue-images/913320_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "SR-PRD-913108-01",
       "name": "BX-24 Random Booster Vol.2",
       "image": "catalogue-images/913108_00.webp",
@@ -862,6 +1036,12 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "BXC01",
+      "name": "BX-00 Feather Phoenix 3-60F",
+      "image": "catalogue-images/135282_01.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "SR-EVE-910909-01",
       "name": "BX-00 Sword Dran 3-60F Metallic Coat Ver. X-Treme Cup G1 2023 Prize",
       "image": "catalogue-images/910909_01.webp",
@@ -871,6 +1051,12 @@
       "id": "SR-PRD-913139-00",
       "name": "BX-22 Sword Dran 3-60F Entry Package",
       "image": "catalogue-images/913139_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX18",
+      "name": "BX-18 String Launcher",
+      "image": "catalogue-images/913054_00.webp",
       "itemType": "Beyblade"
     },
     {
@@ -907,6 +1093,42 @@
       "id": "SR-PRD-913030-00",
       "name": "BX-15 Claw Leon 5-60P",
       "image": "catalogue-images/913030_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BXH28",
+      "name": "BX-00 String Launcher Gold/Silver/Bronze Ver. X-Treme Cup G2 Prize",
+      "image": "catalogue-images/g2_prize_gold.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX09",
+      "name": "BX-09 Bey Battle Pass",
+      "image": "catalogue-images/905240_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX10",
+      "name": "BX-10 Extreme Stadium",
+      "image": "catalogue-images/910596_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX11",
+      "name": "BX-11 Launcher Grip",
+      "image": "catalogue-images/910787_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BX12",
+      "name": "BX-12 3on3 Deck Case",
+      "image": "catalogue-images/910602_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BXG02",
+      "name": "BX-00 Extreme Stadium Light Package",
+      "image": "catalogue-images/292722_00.webp",
       "itemType": "Beyblade"
     },
     {
@@ -991,228 +1213,6 @@
       "id": "SR-PRD-910381-00",
       "name": "BX-01 Sword Dran 3-60F",
       "image": "catalogue-images/910381_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXC01",
-      "name": "BX-00 Feather Phoenix 3-60F",
-      "image": "catalogue-images/135282_01.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXC04",
-      "name": "BX-00 Sword Dran Metallic Coat: Blue",
-      "image": "catalogue-images/01.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXC08",
-      "name": "BX-00 Feather Phoenix Metallic Coat: Orange",
-      "image": "catalogue-images/01.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXC14",
-      "name": "CX-00 Assist Blade/J",
-      "image": "catalogue-images/993889_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXC18",
-      "name": "BX-00 Sword Dran Metallic Coat: Red",
-      "image": "catalogue-images/0381002126.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXG17",
-      "name": "BX-00 Bit Set F/T/B/N Gold×Black",
-      "image": "catalogue-images/949862_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXH20",
-      "name": "BX-00 Plus One Bit Campaign P",
-      "image": "catalogue-images/092698_01.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXH21",
-      "name": "BX-00 Plus One Bit Campaign V/O/D",
-      "image": "catalogue-images/092858_01.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXH27",
-      "name": "BX-00 Plus One Bit Campaign U/W/GB",
-      "image": "catalogue-images/080541_01.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXH28",
-      "name": "BX-00 String Launcher Gold/Silver/Bronze Ver. X-Treme Cup G2 Prize",
-      "image": "catalogue-images/g2_prize_gold.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX00-CG",
-      "name": "BX-00 Custom Grip Clear Black Ver.",
-      "image": "catalogue-images/box.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX00-EMB",
-      "name": "BX-00 Beyblade X Emblem Sticker 01",
-      "image": "catalogue-images/BX00_emb_sticker01@2.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX00-ST01",
-      "name": "BX-00 Beyblade X Sticker 01",
-      "image": "catalogue-images/BXG_st01@2.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX00-ST02",
-      "name": "BX-00 Beyblade X Sticker 02",
-      "image": "catalogue-images/BXG_st02@2.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX00-ST03",
-      "name": "BX-00 Beyblade X Sticker 03",
-      "image": "catalogue-images/BXG_st03@2.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX09",
-      "name": "BX-09 Bey Battle Pass",
-      "image": "catalogue-images/905240_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX10",
-      "name": "BX-10 Extreme Stadium",
-      "image": "catalogue-images/910596_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX11",
-      "name": "BX-11 Launcher Grip",
-      "image": "catalogue-images/910787_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX12",
-      "name": "BX-12 3on3 Deck Case",
-      "image": "catalogue-images/910602_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX18",
-      "name": "BX-18 String Launcher",
-      "image": "catalogue-images/913054_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX25",
-      "name": "BX-25 Gear Case",
-      "image": "catalogue-images/913320_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX28",
-      "name": "BX-28 String Launcher White Ver.",
-      "image": "catalogue-images/914518_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX29",
-      "name": "BX-29 Custom Grip White Ver.",
-      "image": "catalogue-images/914525_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX30",
-      "name": "BX-30 Custom Grip Red Ver.",
-      "image": "catalogue-images/926702_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX32",
-      "name": "BX-32 Wide Extreme Stadium",
-      "image": "catalogue-images/926719_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX40",
-      "name": "BX-40 Winder Launcher L",
-      "image": "catalogue-images/958765_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX41",
-      "name": "BX-41 Rubber Custom Grip Gunmetal Ver.",
-      "image": "catalogue-images/958482_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX42",
-      "name": "BX-42 Rubber Custom Grip Blue Ver.",
-      "image": "catalogue-images/958536_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX43",
-      "name": "BX-43 Gear Case White Ver.",
-      "image": "catalogue-images/958796_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX47",
-      "name": "BX-47 String Launcher L Red Ver.",
-      "image": "catalogue-images/097396_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX51",
-      "name": "BX-51 String Launcher Black × Green",
-      "image": "catalogue-images/089261_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX56",
-      "name": "BX-56 String Launcher L White × Violet",
-      "image": "catalogue-images/058915_02.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BX57",
-      "name": "BX-57 3on3 Deck Case Black Ver.",
-      "image": "catalogue-images/059905_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXG02",
-      "name": "BX-00 Extreme Stadium Light Package",
-      "image": "catalogue-images/292722_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXG50",
-      "name": "BX-00 Bit Set F/T/B/N Silver×White",
-      "image": "catalogue-images/089193_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXG62",
-      "name": "BX-00 String Launcher B4 Store Limited Color Ver.",
-      "image": "catalogue-images/202431_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXH17",
-      "name": "CX-00 Lock Chip / Dran Clear Black Ver.",
-      "image": "catalogue-images/953715_00.webp",
       "itemType": "Beyblade"
     },
     {
@@ -1516,6 +1516,12 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "G1546",
+      "name": "G1546 Beystadium",
+      "image": "catalogue-images/G1546_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "HB-G3393-01",
       "name": "G3393 Yggdrasil Team Pack",
       "image": "catalogue-images/G3393_00.webp",
@@ -1531,6 +1537,24 @@
       "id": "HB-G3195-01",
       "name": "G3195 X-treme Expansion Pack",
       "image": "catalogue-images/G3195_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "G1863",
+      "name": "G1863 Wide Beystadium",
+      "image": "catalogue-images/G1863_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "G1864",
+      "name": "G1864 Double Xtreme Motorized Beystadium",
+      "image": "catalogue-images/G1864_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "G0318",
+      "name": "G0318 Tournament Beystadium",
+      "image": "catalogue-images/G0318_00.webp",
       "itemType": "Beyblade"
     },
     {
@@ -1774,6 +1798,12 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "G0841",
+      "name": "G0841 Clash & Carry Beystadium",
+      "image": "catalogue-images/G0841_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "HB-G1531",
       "name": "G1531 Arrow Wizard 4-80GB",
       "image": "catalogue-images/G1531_00.webp",
@@ -1924,6 +1954,18 @@
       "itemType": "Beyblade"
     },
     {
+      "id": "F9578",
+      "name": "F9578 Beystadium",
+      "image": "catalogue-images/F9578_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "G0440",
+      "name": "G0440 Winder Launcher",
+      "image": "catalogue-images/G0440_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
       "id": "HB-G0197-01",
       "name": "G0197 Tail Viper and Sword Dran Dual Pack",
       "image": "catalogue-images/G0197_00.webp",
@@ -2002,48 +2044,6 @@
       "itemType": "Beyblade"
     },
     {
-      "id": "F9578",
-      "name": "F9578 Beystadium",
-      "image": "catalogue-images/F9578_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "G0318",
-      "name": "G0318 Tournament Beystadium",
-      "image": "catalogue-images/G0318_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "G0440",
-      "name": "G0440 Winder Launcher",
-      "image": "catalogue-images/G0440_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "G0841",
-      "name": "G0841 Clash & Carry Beystadium",
-      "image": "catalogue-images/G0841_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "G1546",
-      "name": "G1546 Beystadium",
-      "image": "catalogue-images/G1546_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "G1863",
-      "name": "G1863 Wide Beystadium",
-      "image": "catalogue-images/G1863_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "G1864",
-      "name": "G1864 Double Xtreme Motorized Beystadium",
-      "image": "catalogue-images/G1864_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
       "id": "SR-PRD-073734-01",
       "name": "BX-53 All-in-One Set",
       "image": "catalogue-images/073734_stadium_01.webp",
@@ -2080,6 +2080,12 @@
       "itemType": "Stadium"
     },
     {
+      "id": "BX32",
+      "name": "BX-32 Wide Extreme Stadium",
+      "image": "catalogue-images/926719_stadium_01.webp",
+      "itemType": "Stadium"
+    },
+    {
       "id": "SR-PRD-914501-01",
       "name": "UX-04 Battle Entry Set U",
       "image": "catalogue-images/914501_stadium_01.webp",
@@ -2092,27 +2098,21 @@
       "itemType": "Stadium"
     },
     {
-      "id": "SR-PRD-910589-00",
-      "name": "BX-07 Start Dash Set",
-      "image": "catalogue-images/910589_stadium_01.webp",
-      "itemType": "Stadium"
-    },
-    {
       "id": "BX10",
       "name": "BX-10 Extreme Stadium",
       "image": "catalogue-images/910596_stadium_01.webp",
       "itemType": "Stadium"
     },
     {
-      "id": "BX32",
-      "name": "BX-32 Wide Extreme Stadium",
-      "image": "catalogue-images/926719_stadium_01.webp",
-      "itemType": "Stadium"
-    },
-    {
       "id": "BXG02",
       "name": "BX-00 Extreme Stadium Light Package",
       "image": "catalogue-images/292722_stadium_01.webp",
+      "itemType": "Stadium"
+    },
+    {
+      "id": "SR-PRD-910589-00",
+      "name": "BX-07 Start Dash Set",
+      "image": "catalogue-images/910589_stadium_01.webp",
       "itemType": "Stadium"
     },
     {
@@ -2125,36 +2125,6 @@
       "id": "HB-G1940-01",
       "name": "G1940 Sneak Attack Battle Set",
       "image": "catalogue-images/G1940_15.webp",
-      "itemType": "Stadium"
-    },
-    {
-      "id": "HB-G0842-01",
-      "name": "G0842 Drop Attack Battle Set",
-      "image": "catalogue-images/G0842_17.webp",
-      "itemType": "Stadium"
-    },
-    {
-      "id": "HB-F9588-01",
-      "name": "F9588 Xtreme Battle Set",
-      "image": "catalogue-images/F9588_15.webp",
-      "itemType": "Stadium"
-    },
-    {
-      "id": "F9578",
-      "name": "F9578 Beystadium",
-      "image": "catalogue-images/F9578_00.webp",
-      "itemType": "Stadium"
-    },
-    {
-      "id": "G0318",
-      "name": "G0318 Tournament Beystadium",
-      "image": "catalogue-images/G0318_01.webp",
-      "itemType": "Stadium"
-    },
-    {
-      "id": "G0841",
-      "name": "G0841 Clash & Carry Beystadium",
-      "image": "catalogue-images/G0841_01.webp",
       "itemType": "Stadium"
     },
     {
@@ -2176,9 +2146,51 @@
       "itemType": "Stadium"
     },
     {
+      "id": "G0318",
+      "name": "G0318 Tournament Beystadium",
+      "image": "catalogue-images/G0318_01.webp",
+      "itemType": "Stadium"
+    },
+    {
+      "id": "HB-G0842-01",
+      "name": "G0842 Drop Attack Battle Set",
+      "image": "catalogue-images/G0842_17.webp",
+      "itemType": "Stadium"
+    },
+    {
+      "id": "G0841",
+      "name": "G0841 Clash & Carry Beystadium",
+      "image": "catalogue-images/G0841_01.webp",
+      "itemType": "Stadium"
+    },
+    {
+      "id": "F9578",
+      "name": "F9578 Beystadium",
+      "image": "catalogue-images/F9578_00.webp",
+      "itemType": "Stadium"
+    },
+    {
+      "id": "HB-F9588-01",
+      "name": "F9588 Xtreme Battle Set",
+      "image": "catalogue-images/F9588_15.webp",
+      "itemType": "Stadium"
+    },
+    {
       "id": "SR-PRD-097280-00",
       "name": "CX-16 Launcher Grip Start Dash Set C",
       "image": "catalogue-images/097280_grip_01.webp",
+      "itemType": "Launcher"
+    },
+    {
+      "id": "BX41",
+      "name": "BX-41 Rubber Custom Grip Gunmetal Ver.",
+      "image": "catalogue-images/958482_grip_01.webp",
+      "itemType": "Launcher"
+    },
+    {
+      "id": "BX42",
+      "name": "BX-42 Rubber Custom Grip Blue Ver.",
+      "image": "catalogue-images/958536_grip_01.webp",
       "itemType": "Launcher"
     },
     {
@@ -2194,21 +2206,9 @@
       "itemType": "Launcher"
     },
     {
-      "id": "SR-PRD-910589-00",
-      "name": "BX-07 Launcher Grip Start Dash Set",
-      "image": "catalogue-images/910589_grip_01.webp",
-      "itemType": "Launcher"
-    },
-    {
       "id": "BX00-CG",
       "name": "BX-00 Custom Grip Clear Black Ver.",
       "image": "catalogue-images/BX00-CG_grip_01.webp",
-      "itemType": "Launcher"
-    },
-    {
-      "id": "BX11",
-      "name": "BX-11 Launcher Grip",
-      "image": "catalogue-images/910787_grip_01.webp",
       "itemType": "Launcher"
     },
     {
@@ -2224,15 +2224,15 @@
       "itemType": "Launcher"
     },
     {
-      "id": "BX41",
-      "name": "BX-41 Rubber Custom Grip Gunmetal Ver.",
-      "image": "catalogue-images/958482_grip_01.webp",
+      "id": "BX11",
+      "name": "BX-11 Launcher Grip",
+      "image": "catalogue-images/910787_grip_01.webp",
       "itemType": "Launcher"
     },
     {
-      "id": "BX42",
-      "name": "BX-42 Rubber Custom Grip Blue Ver.",
-      "image": "catalogue-images/958536_grip_01.webp",
+      "id": "SR-PRD-910589-00",
+      "name": "BX-07 Launcher Grip Start Dash Set",
+      "image": "catalogue-images/910589_grip_01.webp",
       "itemType": "Launcher"
     },
     {
