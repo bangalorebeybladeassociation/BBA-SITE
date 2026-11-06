@@ -1,14 +1,8 @@
 {
   "source": "https://beyblade.phstudy.org/",
-  "syncedAt": "2026-10-27T01:32:39.895Z",
-  "hash": "c6c2ce7f7b7e240e",
+  "syncedAt": "2026-11-06T02:20:37.761Z",
+  "hash": "0ec6801871b9ef7e",
   "items": [
-    {
-      "id": "SR-PRD-056102-00",
-      "name": "CX-00 Valkyrie Volt S 4-70V Gunmetal Ver.",
-      "image": "catalogue-images/056102_01.webp",
-      "itemType": "Beyblade"
-    },
     {
       "id": "SR-PRD-077596-01",
       "name": "CX-20 Customize Set C",
@@ -19,6 +13,12 @@
       "id": "SR-PRD-080763-00",
       "name": "BX-54 Suppress Superion 0-70LP",
       "image": "catalogue-images/080763_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "SR-PRD-056102-00",
+      "name": "CX-00 Valkyrie Volt S 4-70V Gunmetal Ver.",
+      "image": "catalogue-images/056102_01.webp",
       "itemType": "Beyblade"
     },
     {
