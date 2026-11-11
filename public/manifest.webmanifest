@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Bangalore Beyblade Association",
+  "short_name": "BBA",
+  "description": "Tournament schedules, live brackets, leaderboard, rulebook and marketplace for Bangalore's Beyblade X community.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A0D18",
+  "theme_color": "#0A0D18",
+  "lang": "en-IN",
+  "categories": ["sports", "entertainment", "shopping"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
