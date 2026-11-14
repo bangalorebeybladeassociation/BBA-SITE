@@ -1,18 +1,36 @@
 {
   "source": "https://beyblade.phstudy.org/",
-  "syncedAt": "2026-11-13T02:34:15.456Z",
-  "hash": "b84b38c19996dac7",
+  "syncedAt": "2026-11-14T02:21:03.857Z",
+  "hash": "a76c57979899b4ae",
   "items": [
+    {
+      "id": "BXH27",
+      "name": "BX-00 Plus One Bit Campaign U/W/GB",
+      "image": "catalogue-images/080541_01.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "BXH29",
+      "name": "BX-00 Plus One Bit Campaign GF/T/DB",
+      "image": "catalogue-images/news261113.webp",
+      "itemType": "Beyblade"
+    },
     {
       "id": "SR-PRD-077602-01",
       "name": "BX-55 Random Booster Vol.12",
-      "image": "catalogue-images/077602_01.webp",
+      "image": "catalogue-images/077602_00.webp",
       "itemType": "Beyblade"
     },
     {
       "id": "SR-PRD-073741-00",
       "name": "UX-22 Vanish Lucifer WW",
-      "image": "catalogue-images/073741_01.webp",
+      "image": "catalogue-images/073741_00.webp",
+      "itemType": "Beyblade"
+    },
+    {
+      "id": "SR-PRD-990012-00",
+      "name": "CX-00 Blitz Bahamut BK 1-50I Metallic Coat: Black",
+      "image": "catalogue-images/990012_01.webp",
       "itemType": "Beyblade"
     },
     {
@@ -85,12 +103,6 @@
       "id": "SR-PRD-080640-00",
       "name": "CX-00 Tiga Rage FT 3-60T",
       "image": "catalogue-images/080640_00.webp",
-      "itemType": "Beyblade"
-    },
-    {
-      "id": "BXH27",
-      "name": "BX-00 Plus One Bit Campaign U/W/GB",
-      "image": "catalogue-images/080541_01.webp",
       "itemType": "Beyblade"
     },
     {
